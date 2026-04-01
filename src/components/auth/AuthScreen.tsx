@@ -22,7 +22,7 @@ export default function AuthScreen() {
   const [regInvite, setRegInvite] = useState('');
 
   async function doLogin() {
-    if (!loginUser || !loginPass) return setMsg({ text: 'Vui lòng nhập đầy đủ thông tin', type: 'error' });
+    if (!loginUser || !loginPass) return setMsg({ text: 'Please enter complete information', type: 'error' });
     setMsg(null);
     try {
       const res = await fetch('/api/auth/login', {
@@ -35,15 +35,15 @@ export default function AuthScreen() {
         setCurrentUser(data.data);
         setActiveTab('create');
       } else {
-        setMsg({ text: data.message || 'Lỗi đăng nhập', type: 'error' });
+        setMsg({ text: data.message || 'Login failed', type: 'error' });
       }
     } catch (err) {
-      setMsg({ text: 'Lỗi máy chủ rớt mạng', type: 'error' });
+      setMsg({ text: 'Network connection error', type: 'error' });
     }
   }
 
   async function doRegister() {
-    if (!regUser || !regName || !regPass) return setMsg({ text: 'Vui lòng nhập đầy đủ thông tin bắt buộc', type: 'error' });
+    if (!regUser || !regName || !regPass) return setMsg({ text: 'Please enter all required fields', type: 'error' });
     setMsg(null);
     try {
       const res = await fetch('/api/auth/register', {
@@ -59,16 +59,16 @@ export default function AuthScreen() {
       });
       const data = await res.json();
       if (data.success) {
-        setMsg({ text: '✅ Tạo tài khoản thành công! Đang đăng nhập...', type: 'success' });
+        setMsg({ text: '✅ Account created successfully! Logging in...', type: 'success' });
         setTimeout(() => { 
           setCurrentUser(data.data); 
           setActiveTab('create'); 
         }, 900);
       } else {
-        setMsg({ text: data.message || 'Lỗi đăng ký', type: 'error' });
+        setMsg({ text: data.message || 'Registration failed', type: 'error' });
       }
     } catch (err) {
-      setMsg({ text: 'Lỗi kết nối máy chủ', type: 'error' });
+      setMsg({ text: 'Server connection error', type: 'error' });
     }
   }
 
@@ -84,7 +84,7 @@ export default function AuthScreen() {
             🚚
           </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">ShipLabel</h1>
-          <p className="text-blue-100/70 font-medium">Nền tảng vận chuyển thông minh</p>
+          <p className="text-blue-100/70 font-medium">Smart shipping platform</p>
         </div>
 
         {/* Tabs */}
@@ -92,7 +92,7 @@ export default function AuthScreen() {
           {(['login', 'register'] as const).map((t, i) => (
             <button key={t} onClick={() => { setTab(t); setMsg(null); }}
               className={`flex-1 py-2 rounded-lg font-bold text-sm transition-all duration-300 ${tab === t ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-              {i === 0 ? 'Đăng nhập' : 'Đăng ký'}
+              {i === 0 ? 'Login' : 'Register'}
             </button>
           ))}
         </div>
@@ -102,40 +102,40 @@ export default function AuthScreen() {
         <div className="animate-slide-up">
           {tab === 'login' ? (
             <div className="space-y-4">
-              <Field label="Tên đăng nhập">
-                <input className={inputCls} placeholder="Nhập username..." value={loginUser}
+              <Field label="Username">
+                <input className={inputCls} placeholder="Enter username..." value={loginUser}
                   onChange={e => setLoginUser(e.target.value)} />
               </Field>
-              <Field label="Mật khẩu">
+              <Field label="Password">
                 <input className={inputCls} type="password" placeholder="••••••••" value={loginPass}
                   onChange={e => setLoginPass(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && doLogin()} />
               </Field>
               <button onClick={doLogin}
                 className="w-full mt-2 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98]">
-                Đăng nhập
+                Login
               </button>
             </div>
           ) : (
             <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
-              <Field label="Tên đăng nhập *">
+              <Field label="Username *">
                 <input className={inputCls} placeholder="username" value={regUser} onChange={e => setRegUser(e.target.value)} />
               </Field>
-              <Field label="Họ tên *">
-                <input className={inputCls} placeholder="Nguyễn Văn A" value={regName} onChange={e => setRegName(e.target.value)} />
+              <Field label="Full Name *">
+                <input className={inputCls} placeholder="John Doe" value={regName} onChange={e => setRegName(e.target.value)} />
               </Field>
               <Field label="Email">
                 <input className={inputCls} type="email" placeholder="email@example.com" value={regEmail} onChange={e => setRegEmail(e.target.value)} />
               </Field>
-              <Field label="Mật khẩu *">
+              <Field label="Password *">
                 <input className={inputCls} type="password" placeholder="••••••••" value={regPass} onChange={e => setRegPass(e.target.value)} />
               </Field>
-              <Field label="Mã mời (nếu có)">
-                <input className={inputCls} placeholder="Nhập mã mời từ admin" value={regInvite} onChange={e => setRegInvite(e.target.value)} />
+              <Field label="Invite Code (optional)">
+                <input className={inputCls} placeholder="Enter invite code" value={regInvite} onChange={e => setRegInvite(e.target.value)} />
               </Field>
               <button onClick={doRegister}
                 className="w-full mt-4 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98]">
-                Tạo tài khoản
+                Create Account
               </button>
             </div>
           )}

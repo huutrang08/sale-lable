@@ -46,7 +46,7 @@ export default function Topbar() {
             </div>
             <button onClick={logout}
               className="text-slate-400 hover:text-rose-600 font-medium text-sm transition-colors active:scale-95 bg-slate-50 hover:bg-rose-50 px-3 py-1.5 rounded-lg border border-transparent hover:border-rose-100">
-              Đăng xuất
+              Logout
             </button>
           </div>
         </div>

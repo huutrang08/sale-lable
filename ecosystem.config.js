@@ -18,6 +18,8 @@ module.exports = {
         PORT: 9030,
         DATABASE_URL: 'postgres://postgres:Abc%241243@14.224.185.1:5432/ship_partner',
         JWT_SECRET: 'shiplabel-super-secret-key-32chars!',
+        // Ép Node.js native fetch ưu tiên dùng IPv4 để tránh lỗi "fetch failed"
+        NODE_OPTIONS: '--dns-result-order=ipv4first'
       },
       // Log files (tuỳ chỉnh đường dẫn nếu cần)
       out_file: './logs/pm2-out.log',

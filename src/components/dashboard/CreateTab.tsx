@@ -8,14 +8,14 @@ import type { ShipService, OrderPayload } from '@/types';
 import LabelModal from './LabelModal';
 
 const SECTIONS: [string, string][] = [
-  ['fromName','Tên *'], ['fromCompany','Công ty'], ['fromAddress','Địa chỉ *'],
-  ['fromAddress2','Địa chỉ 2'], ['fromCity','Thành phố *'], ['fromState','Bang *'],
-  ['fromZip','ZIP *'], ['fromCountry','Quốc gia'],
+  ['fromName','Name *'], ['fromCompany','Company'], ['fromAddress','Address *'],
+  ['fromAddress2','Address 2'], ['fromCity','City *'], ['fromState','State *'],
+  ['fromZip','ZIP *'], ['fromCountry','Country'],
 ];
 const TO_SECTIONS: [string, string][] = [
-  ['toName','Tên *'], ['toCompany','Công ty'], ['toAddress','Địa chỉ *'],
-  ['toAddress2','Địa chỉ 2'], ['toCity','Thành phố *'], ['toState','Bang *'],
-  ['toZip','ZIP *'], ['toCountry','Quốc gia'],
+  ['toName','Name *'], ['toCompany','Company'], ['toAddress','Address *'],
+  ['toAddress2','Address 2'], ['toCity','City *'], ['toState','State *'],
+  ['toZip','ZIP *'], ['toCountry','Country'],
 ];
 
 export default function CreateTab() {
@@ -50,7 +50,7 @@ export default function CreateTab() {
         throw new Error('Fallback services error');
       }
     } catch {
-      setMsg({ text: 'Lỗi đồng bộ cấu hình dịch vụ.', type: 'error' });
+      setMsg({ text: 'Error syncing service configuration.', type: 'error' });
     }
     setLoadingSvc(false);
   }
@@ -74,7 +74,7 @@ export default function CreateTab() {
     // Simple frontend logic match backend
     const prices = selectedService.prices;
     let finalPrice = prices[prices.length - 1];
-    const weightRanges = [1, 5, 10, 20, 50, 70];
+    const weightRanges = [5, 10, 25, 40, 70];
     for (let i = 0; i < weightRanges.length; i++) {
       if (w <= weightRanges[i]) {
         finalPrice = prices[Math.min(i, prices.length - 1)];
@@ -86,10 +86,10 @@ export default function CreateTab() {
 
   async function createOrder() {
     setMsg(null);
-    if (!selectedService) return setMsg({ text: '⚠️ Vui lòng chọn dịch vụ vận chuyển', type: 'error' });
+    if (!selectedService) return setMsg({ text: '⚠️ Please select a shipping service', type: 'error' });
     const required = ['fromName','fromAddress','fromCity','fromState','fromZip','toName','toAddress','toCity','toState','toZip','weight'];
     for (const f of required) {
-      if (!form[f]?.trim()) return setMsg({ text: `⚠️ Vui lòng điền: ${f}`, type: 'error' });
+      if (!form[f]?.trim()) return setMsg({ text: `⚠️ Please enter: ${f}`, type: 'error' });
     }
 
     setCreating(true);
@@ -123,12 +123,12 @@ export default function CreateTab() {
       if (data.success) {
         setLabelResult({ d: data, price: data.price });
         await updateBalance(); 
-        setMsg({ text: 'Tạo đơn hàng thành công!', type: 'success' });
+        setMsg({ text: 'Order created successfully!', type: 'success' });
       } else {
-        setMsg({ text: `❌ ${data.message || 'Lỗi nhà mạng'}`, type: 'error' });
+        setMsg({ text: `❌ ${data.message || 'Carrier error'}`, type: 'error' });
       }
     } catch (e: unknown) {
-      setMsg({ text: '❌ Lỗi kết nối: ' + (e instanceof Error ? e.message : 'Unknown error'), type: 'error' });
+      setMsg({ text: '❌ Connection error: ' + (e instanceof Error ? e.message : 'Unknown error'), type: 'error' });
     }
     setCreating(false);
   }
@@ -147,12 +147,12 @@ export default function CreateTab() {
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-blue-500/20 blur-2xl" />
         <div className="relative z-10">
           <div className="text-blue-100 font-medium tracking-wide flex items-center gap-2">
-            Số dư tài khoản 
+            Account Balance 
             <span className="px-2 py-0.5 rounded-full bg-blue-500/30 border border-blue-400/40 text-[10px] font-bold">LIVE</span>
           </div>
           <div className="text-4xl sm:text-5xl font-extrabold mt-1 tracking-tight">${(Number(currentUser?.balance) || 0).toFixed(2)}</div>
           <div className="text-sm font-medium text-blue-200 mt-4 flex items-center gap-2">
-            <span className="opacity-70">Sử dụng API Key:</span>
+            <span className="opacity-70">Using API Key:</span>
             <code className="px-2 py-1 rounded bg-slate-900/40 border border-slate-700/50 font-mono text-xs">
               {(currentUser as any)?.api_key_id ? 'API Key (' + String((currentUser as any).api_key_id).substring(0,4) + '...)' : 'Master Key'}
             </code>
@@ -164,11 +164,11 @@ export default function CreateTab() {
       </div>
 
       {/* Services */}
-      <Card title="1. Chọn dịch vụ vận chuyển">
+      <Card title="1. Select shipping service">
         {loadingSvc ? (
           <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-3">
             <Spinner size={24} /> 
-            <span className="font-semibold text-sm">Đang đồng bộ tuyến đường...</span>
+            <span className="font-semibold text-sm">Syncing routes...</span>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 gap-3">
@@ -195,12 +195,12 @@ export default function CreateTab() {
       </Card>
 
       {/* Addresses */}
-      <Card title="2. Thông tin gửi hàng">
+      <Card title="2. Shipping Information">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
           <div className="space-y-1">
             <div className="flex items-center gap-2 mb-6 pb-2 border-b border-slate-100">
               <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-sm">📤</span>
-              <h3 className="font-bold text-slate-800 tracking-wide uppercase">Người gửi</h3>
+              <h3 className="font-bold text-slate-800 tracking-wide uppercase">Sender</h3>
             </div>
             {SECTIONS.map(([k, l]) => (
               <Field key={k} label={l}>
@@ -212,7 +212,7 @@ export default function CreateTab() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 mb-6 pb-2 border-b border-slate-100">
               <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 text-sm">📥</span>
-              <h3 className="font-bold text-slate-800 tracking-wide uppercase">Người nhận</h3>
+              <h3 className="font-bold text-slate-800 tracking-wide uppercase">Recipient</h3>
             </div>
             {TO_SECTIONS.map(([k, l]) => (
               <Field key={k} label={l}>
@@ -225,9 +225,9 @@ export default function CreateTab() {
       </Card>
 
       {/* Package info */}
-      <Card title="3. Thông tin kiện hàng">
+      <Card title="3. Package Information">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          {[['weight','Cân nặng (lbs) *'],['length','Dài (in)'],['width','Rộng (in)'],['height','Cao (in)']].map(([k,l]) => (
+          {[['weight','Weight (lbs) *'],['length','Length (in)'],['width','Width (in)'],['height','Height (in)']].map(([k,l]) => (
             <Field key={k} label={l}>
               <input className={inputCls} type="number" step="0.1" min="0.1" value={form[k]} onChange={setF(k)} placeholder="0.0" />
             </Field>
@@ -237,7 +237,7 @@ export default function CreateTab() {
           <Field label="Reference 1"><input className={inputCls} value={form.ref1} onChange={setF('ref1')} placeholder="REF123" /></Field>
           <Field label="Reference 2"><input className={inputCls} value={form.ref2} onChange={setF('ref2')} placeholder="REF456" /></Field>
         </div>
-        <Field label="Mô tả hàng hóa">
+        <Field label="Package Description">
           <input className={inputCls} value={form.desc} onChange={setF('desc')} placeholder="Electronics shipment..." />
         </Field>
         
@@ -246,7 +246,7 @@ export default function CreateTab() {
             <div className="flex items-center gap-3">
               <span className="text-2xl">💡</span>
               <div>
-                <div className="font-bold text-emerald-800 text-sm">Cước phí dự kiến tối thiểu</div>
+                <div className="font-bold text-emerald-800 text-sm">Estimated minimum cost</div>
                 <div className="text-slate-500 text-xs font-medium mt-0.5">{selectedService.name} / {form.weight} lbs</div>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function CreateTab() {
 
       <button onClick={createOrder} disabled={creating}
         className="w-full mt-4 mb-10 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-slate-400 disabled:to-slate-400 text-white font-extrabold text-lg rounded-2xl shadow-[0_10px_25px_-5px_rgba(37,99,235,0.4)] transition-all active:scale-[0.98] flex items-center justify-center gap-3">
-        {creating ? <><Spinner /> Đang xử lý giao dịch...</> : '🚀 Xác Nhận Tạo Nhãn'}
+        {creating ? <><Spinner /> Processing transaction...</> : '🚀 Confirm Create Label'}
       </button>
 
       {labelResult && (

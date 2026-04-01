@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const user = res.rows[0];
 
     if (!user) {
-      return NextResponse.json({ success: false, message: 'Sai tên đăng nhập hoặc mật khẩu' }, { status: 401 });
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
     // Exclude password from token payload
@@ -30,6 +30,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data: userPayload });
   } catch (error: any) {
     console.error('Login error:', error);
-    return NextResponse.json({ success: false, message: 'Lỗi hệ thống' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'System error' }, { status: 500 });
   }
 }

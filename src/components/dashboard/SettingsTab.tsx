@@ -19,34 +19,34 @@ export default function SettingsTab() {
   }, []);
 
   function save() {
-    if (!masterKey) return setMsg({ text: '⚠️ Master API Key không được để trống', type: 'error' });
+    if (!masterKey) return setMsg({ text: '⚠️ Master API Key cannot be empty', type: 'error' });
     const db = getDB();
     if (!db.settings) db.settings = { master_api: '', invite_code: '', open_register: false };
     db.settings.master_api = masterKey;
     db.settings.invite_code = inviteCode;
     db.settings.open_register = openReg === '1';
     saveDB(db);
-    setMsg({ text: '✅ Đã lưu cài đặt thành công!', type: 'success' });
+    setMsg({ text: '✅ Settings saved successfully!', type: 'success' });
     setTimeout(() => setMsg(null), 3000);
   }
 
   return (
-    <Card title="⚙️ Cài đặt hệ thống">
+    <Card title="⚙️ System Settings">
       <Field label="Master API Key (shiplabel.net)">
         <input className={inputCls} placeholder="1779|..." value={masterKey} onChange={e => setMasterKey(e.target.value)} />
       </Field>
-      <Field label="Mã mời đăng ký (Invite Code)">
+      <Field label="Registration Invite Code">
         <input className={inputCls} placeholder="SHIP2024" value={inviteCode} onChange={e => setInviteCode(e.target.value)} />
       </Field>
-      <Field label="Cho phép đăng ký tự do">
+      <Field label="Allow Open Registration">
         <select className={selectCls} value={openReg} onChange={e => setOpenReg(e.target.value)}>
-          <option value="0">Không — Bắt buộc có mã mời</option>
-          <option value="1">Có — Ai cũng đăng ký được</option>
+          <option value="0">No — Invite Code required</option>
+          <option value="1">Yes — Anyone can register</option>
         </select>
       </Field>
       <button onClick={save}
         className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors">
-        💾 Lưu cài đặt
+        💾 Save Settings
       </button>
       {msg && <div className="mt-3"><Alert type={msg.type}>{msg.text}</Alert></div>}
     </Card>

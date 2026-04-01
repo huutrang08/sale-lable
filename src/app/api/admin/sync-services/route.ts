@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     const apiKey = tokenRes.rows[0]?.value || '';
 
     if (!apiKey) {
-      return NextResponse.json({ success: false, message: 'Chưa cấu hình API Key đối tác (master_api)' }, { status: 400 });
+      return NextResponse.json({ success: false, message: 'Partner API key not configured (master_api)' }, { status: 400 });
     }
 
     const resp = await fetch('https://shiplabel.net/api/v2/services', {
@@ -31,16 +31,16 @@ export async function POST(req: Request) {
     });
 
     if (!resp.ok) {
-      return NextResponse.json({ success: false, message: `Lỗi kết nối đối tác: HTTP ${resp.status}` }, { status: 500 });
+      return NextResponse.json({ success: false, message: `Partner connection error: HTTP ${resp.status}` }, { status: 500 });
     }
 
     const json = await resp.json();
     
-    // Đối tác trả về dạng { success: { labels: [...] } }
+    // Partner returns format: { success: { labels: [...] } }
     const services = json?.success?.labels || json?.data || [];
 
     if (!Array.isArray(services) || services.length === 0) {
-      return NextResponse.json({ success: false, message: 'Phản hồi từ đối tác không đúng định dạng hoặc rỗng', detail: json }, { status: 500 });
+      return NextResponse.json({ success: false, message: 'Partner response is invalid or empty', detail: json }, { status: 500 });
     }
 
     await dbClient.query('BEGIN');
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 
     await dbClient.query('COMMIT');
 
-    return NextResponse.json({ success: true, message: `Đồng bộ thành công ${insertedCount} dịch vụ.` });
+    return NextResponse.json({ success: true, message: `Synced ${insertedCount} services successfully.` });
 
   } catch (err: any) {
     await dbClient.query('ROLLBACK');

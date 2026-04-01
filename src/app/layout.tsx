@@ -7,7 +7,11 @@ const inter = Inter({ subsets: ['latin', 'vietnamese'], variable: '--font-inter'
 
 export const metadata: Metadata = {
   title: 'ShipLabel Manager',
-  description: 'Hệ thống tạo nhãn vận chuyển cao cấp',
+  description: 'Premium shipping label management system',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/favicon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

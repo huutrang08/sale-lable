@@ -15,21 +15,21 @@ const PaymentTab = lazy(() => import('./PaymentTab'));
 const SettingsTab = lazy(() => import('./SettingsTab'));
 
 const TABS = [
-  { id: 'create', label: 'Tạo Nhãn', icon: '➕', adminOnly: false },
-  { id: 'orders', label: 'Đơn Hàng', icon: '📦', adminOnly: false },
-  { id: 'services', label: 'Dịch Vụ', icon: '🚀', adminOnly: false },
+  { id: 'create', label: 'Create Label', icon: '➕', adminOnly: false },
+  { id: 'orders', label: 'Orders', icon: '📦', adminOnly: false },
+  { id: 'services', label: 'Services', icon: '🚀', adminOnly: false },
   { id: 'admin', label: 'Admin', icon: '👥', adminOnly: true },
   { id: 'apikeys', label: 'Keys', icon: '🔑', adminOnly: true },
-  { id: 'pricing', label: 'Giá', icon: '💲', adminOnly: true },
-  { id: 'payment', label: 'Nạp Tiền', icon: '💳', adminOnly: false },
-  { id: 'settings', label: 'Cài Đặt', icon: '⚙️', adminOnly: true },
+  { id: 'pricing', label: 'Pricing', icon: '💲', adminOnly: true },
+  { id: 'payment', label: 'Top Up', icon: '💳', adminOnly: false },
+  { id: 'settings', label: 'Settings', icon: '⚙️', adminOnly: true },
 ];
 
 function LoadingFallback() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-4 animate-fade-in">
       <Spinner size={32} />
-      <span className="text-sm font-semibold">Đang tải cấu phần...</span>
+      <span className="text-sm font-semibold">Loading component...</span>
     </div>
   );
 }

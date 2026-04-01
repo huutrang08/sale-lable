@@ -30,13 +30,13 @@ export default function LabelModal({ open, onClose, d, price, serviceName }: Pro
     if (!tracking) return;
     navigator.clipboard.writeText(tracking).then(() => {
       setCopied(true);
-      showToast('📋 Đã sao chép tracking ID!');
+      showToast('📋 Tracking ID copied!');
       setTimeout(() => setCopied(false), 2000);
     });
   }
 
   function downloadPDF() {
-    if (!pdf) return showToast('⚠️ Không có link PDF');
+    if (!pdf) return showToast('⚠️ No PDF link available');
     const a = document.createElement('a');
     a.href = pdf; a.target = '_blank'; a.download = 'label.pdf';
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -93,12 +93,12 @@ export default function LabelModal({ open, onClose, d, price, serviceName }: Pro
               <span className="absolute inset-0 rounded-full bg-white/20 animate-ping" style={{ animationDuration: '2s' }} />
             </div>
 
-            <h2 className="text-2xl font-black text-white mb-1 tracking-tight">Tạo nhãn thành công!</h2>
-            <p className="text-emerald-100 text-sm font-medium">Đơn hàng đã được lưu và thanh toán tự động</p>
+            <h2 className="text-2xl font-black text-white mb-1 tracking-tight">Label Created Successfully!</h2>
+            <p className="text-emerald-100 text-sm font-medium">Order saved and payment processed automatically</p>
 
             {/* Price badge */}
             <div className="inline-flex items-center gap-2 mt-5 bg-white/20 border border-white/30 backdrop-blur-sm px-5 py-2.5 rounded-2xl">
-              <span className="text-white/70 text-sm font-semibold">Đã thanh toán</span>
+              <span className="text-white/70 text-sm font-semibold">Charged</span>
               <span className="text-white text-2xl font-black">${price.toFixed(2)}</span>
             </div>
           </div>
@@ -120,7 +120,7 @@ export default function LabelModal({ open, onClose, d, price, serviceName }: Pro
                         : 'bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-100'
                     }`}
                   >
-                    {copied ? '✓ Đã sao' : '📋 Sao chép'}
+                    {copied ? '✓ Copied' : '📋 Copy'}
                   </button>
                 </div>
               </div>
@@ -129,9 +129,9 @@ export default function LabelModal({ open, onClose, d, price, serviceName }: Pro
             {/* Info rows */}
             <div className="space-y-0 divide-y divide-slate-100 rounded-2xl border border-slate-100 overflow-hidden">
               {[
-                { icon: '📦', label: 'Dịch vụ', value: serviceName },
-                { icon: '📤', label: 'Người gửi', value: String(d.fromName || d.from_name || '—') },
-                { icon: '📥', label: 'Người nhận', value: String(d.toName || d.to_name || '—') },
+                { icon: '📦', label: 'Service', value: serviceName },
+                { icon: '📤', label: 'From', value: String(d.fromName || d.from_name || '—') },
+                { icon: '📥', label: 'To', value: String(d.toName || d.to_name || '—') },
               ].map(row => (
                 <div key={row.label} className="flex items-center justify-between px-4 py-3 bg-white text-sm">
                   <span className="text-slate-400 font-semibold flex items-center gap-1.5">
@@ -149,18 +149,18 @@ export default function LabelModal({ open, onClose, d, price, serviceName }: Pro
                   href={pdf} target="_blank" rel="noreferrer"
                   className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98]"
                 >
-                  🖨️ Mở / In nhãn PDF
+                  🖨️ Open / Print PDF
                 </a>
                 <button
                   onClick={downloadPDF}
                   className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl text-sm font-black transition-all active:scale-[0.98] shadow-sm"
                 >
-                  ⬇️ Tải xuống
+                  ⬇️ Download
                 </button>
               </div>
             ) : (
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-center text-amber-700 text-sm font-medium">
-                ⚠️ Không tìm thấy link PDF. Kiểm tra lại trong mục đơn hàng.
+                ⚠️ PDF link not found. Please check in the Orders tab.
               </div>
             )}
 
@@ -169,7 +169,7 @@ export default function LabelModal({ open, onClose, d, price, serviceName }: Pro
               onClick={() => { handleClose(); setActiveTab('orders'); }}
               className="w-full py-3 text-slate-500 hover:text-indigo-600 text-sm font-semibold transition-colors"
             >
-              📋 Xem trong lịch sử đơn hàng →
+              📋 View in order history →
             </button>
           </div>
         </div>

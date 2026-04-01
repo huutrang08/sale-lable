@@ -9,7 +9,7 @@ export default function Home() {
   const { currentUser, loadingAuth } = useApp();
   
   if (loadingAuth) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 font-medium">Đang kiểm tra bảo mật...</div>;
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 font-medium">Checking security...</div>;
   }
 
   return (

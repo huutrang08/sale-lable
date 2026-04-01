@@ -39,7 +39,7 @@ export default function PricingTab() {
         setPayload(init);
       }
     } catch {
-      setMsg({ text: 'Lỗi tải nguyên liệu bảng giá từ mạng.', type: 'error' });
+      setMsg({ text: 'Failed to load pricing data.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -93,18 +93,18 @@ export default function PricingTab() {
       });
       const data = await res.json();
       if (data.success) {
-        setMsg({ text: '✅ Đã đồng bộ cấu hình Bán lên hệ thống!', type: 'success' });
+        setMsg({ text: '✅ Pricing config saved successfully!', type: 'success' });
         try {
-          // Buộc các hàm khác xài Data này tái tạo lại UI
+          // Force refresh global services so other tabs pick up the latest data
           const freshRes = await fetch('/api/services');
           const freshJson = await freshRes.json();
           if (freshJson.success) setGlobalServices(freshJson.data);
         } catch(e) {}
       } else {
-        setMsg({ text: '❌ Lỗi: ' + data.message, type: 'error' });
+        setMsg({ text: '❌ Error: ' + data.message, type: 'error' });
       }
     } catch {
-      setMsg({ text: '❌ Mất kết nối DB', type: 'error' });
+      setMsg({ text: '❌ Database connection failed', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -112,20 +112,20 @@ export default function PricingTab() {
   }
 
   async function triggerSync() {
-    if (!confirm('Tiến hành lấy danh sách dịch vụ mới nhất từ Hệ thống tổng?')) return;
+    if (!confirm('Fetch latest service list from the upstream system?')) return;
     try {
       setSyncing(true);
-      setMsg({ text: '⏳ Đang đồng bộ...', type: 'info' });
+      setMsg({ text: '⏳ Syncing...', type: 'info' });
       const res = await fetch('/api/admin/sync-services', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
         setMsg({ text: '✅ ' + data.message, type: 'success' });
         await load(); // refresh grid
       } else {
-        setMsg({ text: '❌ Lỗi đồng bộ: ' + data.message, type: 'error' });
+        setMsg({ text: '❌ Sync error: ' + data.message, type: 'error' });
       }
     } catch (err) {
-      setMsg({ text: '❌ Mất kết nối DB / Mạng', type: 'error' });
+      setMsg({ text: '❌ Network / DB connection failed', type: 'error' });
     } finally {
       setSyncing(false);
     }
@@ -133,24 +133,24 @@ export default function PricingTab() {
 
   return (
     <div className="relative">
-      {/* Màn hình mờ Loading Overlay */}
+      {/* Loading Overlay */}
       {(loading || syncing || saving) && (
         <div className="absolute inset-0 z-50 bg-slate-50/60 backdrop-blur-[2px] rounded-xl flex items-center justify-center border border-slate-100">
           <div className="bg-white px-6 py-4 rounded-xl shadow-lg border border-slate-100 flex flex-col items-center justify-center gap-3">
             <Spinner size={32} />
             <span className="text-sm font-semibold text-slate-700">
-              {syncing ? 'Đang móc nối dữ liệu mạng...' : saving ? 'Đang lưu cấu hình...' : 'Đang tải danh sách...'}
+              {syncing ? 'Fetching services...' : saving ? 'Saving config...' : 'Loading...'}
             </span>
           </div>
         </div>
       )}
 
-      <Card title="💲 Quản lý Dịch vụ & Giá Server">
+      <Card title="💲 Service & Pricing Management">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-          <p className="text-gray-400 text-sm">Cập nhật giá bán ra cho User (Đơn vị: USD). Chỉ dịch vụ <b>Bật (ON)</b> mới hiển thị ở Tạo Tab.</p>
+          <p className="text-gray-400 text-sm">Set selling prices for users (USD). Only <b>enabled (ON)</b> services will appear in the Create tab.</p>
           <button onClick={triggerSync} disabled={syncing || saving}
             className="px-4 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold rounded-lg text-sm transition-colors flex items-center gap-2 disabled:opacity-50">
-            {syncing ? <Spinner /> : '🔄'} Đồng bộ Dịch vụ Hãng gốc
+            {syncing ? <Spinner /> : '🔄'} Sync from Upstream
           </button>
         </div>
 
@@ -158,14 +158,14 @@ export default function PricingTab() {
           <table className="w-full text-sm border-collapse bg-white">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                <th className="px-4 py-3 font-bold text-slate-500 w-12 text-center">Bật</th>
+                <th className="px-4 py-3 font-bold text-slate-500 w-12 text-center">On</th>
                 <th className="px-4 py-3 font-bold text-slate-500 w-24">ID</th>
-                <th className="px-4 py-3 font-bold text-slate-500 min-w-[200px]">Tên dịch vụ & Thời gian</th>
-                <th className="px-4 py-3 font-bold text-slate-500 w-24">Cân Max</th>
+                <th className="px-4 py-3 font-bold text-slate-500 min-w-[200px]">Service & Transit Time</th>
+                <th className="px-4 py-3 font-bold text-slate-500 w-24">Max Weight</th>
                 {WEIGHT_RANGES.map(r => (
                   <th key={r.id} className="px-4 py-3 font-bold text-slate-500 text-center">{r.label}</th>
                 ))}
-                <th className="px-4 py-3 font-bold text-slate-500 text-right">Giá Gốc</th>
+                <th className="px-4 py-3 font-bold text-slate-500 text-right">Provider Price</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -209,14 +209,14 @@ export default function PricingTab() {
                     
                     <td className="px-4 py-3 text-right">
                       <div className="text-[10px] text-slate-400 leading-tight max-w-[150px] ml-auto overflow-hidden text-ellipsis whitespace-nowrap" title={origPrices}>
-                        {origPrices || 'Chưa rõ'}
+                        {origPrices || 'N/A'}
                       </div>
                     </td>
                   </tr>
                 )
               })}
               {services.length === 0 && !loading && (
-                <tr><td colSpan={10} className="py-8 text-center text-slate-400">Không có dịch vụ nào, hãy nhấn nút Đồng bộ.</td></tr>
+                <tr><td colSpan={10} className="py-8 text-center text-slate-400">No services found. Click "Sync from Upstream" to fetch them.</td></tr>
               )}
             </tbody>
           </table>
@@ -225,7 +225,7 @@ export default function PricingTab() {
         <div className="flex gap-2.5 mt-6 flex-wrap">
           <button onClick={save} disabled={loading || syncing || saving}
             className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors shadow-md shadow-blue-500/20 active:scale-95 disabled:opacity-50">
-            💾 Lưu bảng giá Bán Ra
+            💾 Save Pricing
           </button>
         </div>
         {msg && <div className="mt-4"><Alert type={msg.type}>{msg.text}</Alert></div>}

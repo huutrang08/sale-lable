@@ -14,15 +14,15 @@ export async function POST(request: Request) {
   } = payload;
 
   const w = parseFloat(weight) || 0;
-  if (w <= 0) return NextResponse.json({ success: false, message: 'Trọng lượng không hợp lệ' }, { status: 400 });
+  if (w <= 0) return NextResponse.json({ success: false, message: 'Invalid weight' }, { status: 400 });
 
   // Price computation logic matching frontend
   const pRes = await query('SELECT name, prices FROM pricing WHERE id = $1', [label_id]);
   const pricing = pRes.rows[0];
-  if (!pricing) return NextResponse.json({ success: false, message: 'Dịch vụ không tồn tại' }, { status: 400 });
+  if (!pricing) return NextResponse.json({ success: false, message: 'Service not found' }, { status: 400 });
 
   const prices = pricing.prices as number[];
-  if (!prices || prices.length === 0) return NextResponse.json({ success: false, message: 'Lỗi bảng giá cấu hình' }, { status: 500 });
+  if (!prices || prices.length === 0) return NextResponse.json({ success: false, message: 'Pricing config error' }, { status: 500 });
 
   let finalPrice = prices[prices.length - 1]; // default max
   const weightRanges = [5, 10, 25, 40, 70];
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const currentBalance = parseFloat(uRes.rows[0].balance);
     if (currentBalance < finalPrice) {
       await dbClient.query('ROLLBACK');
-      return NextResponse.json({ success: false, message: `Số dư không đủ. Cần $${finalPrice.toFixed(2)}` }, { status: 400 });
+      return NextResponse.json({ success: false, message: `Insufficient balance. Required: $${finalPrice.toFixed(2)}` }, { status: 400 });
     }
 
     const newBalance = currentBalance - finalPrice;
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     await dbClient.query(
       `INSERT INTO sales.topup_history (username, amount, after_balance, type, ref_id, note, by_user)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [session.username, -finalPrice, newBalance, 'order', orderId, `Khấu trừ lệnh tạo nhãn ${pricing.name}`, 'system']
+      [session.username, -finalPrice, newBalance, 'order', orderId, `Charge for label ${pricing.name}`, 'system']
     );
 
     await dbClient.query('COMMIT');
@@ -99,18 +99,28 @@ export async function POST(request: Request) {
     let apiJson: any = { message: 'Timeout/Network error' };
 
     try {
-      const resp = await fetch('https://shiplabel.net/api/v2/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(apiBody)
-      });
-      statusCode = resp.status;
-      const responseText = await resp.text();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60_000); // 60s timeout
+
+      let resp: Response;
+      try {
+        resp = await fetch('https://shiplabel.net/api/v2/create-order', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify(apiBody),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
+      statusCode = resp!.status;
+      const responseText = await resp!.text();
       try { apiJson = JSON.parse(responseText); } catch { apiJson = { raw: responseText }; }
-      
+
       // 3rd party may return {success: true, data: {...}} OR {success: {data: {...}}}
       if (statusCode === 200) {
         if (apiJson.success === true && apiJson.data) {
@@ -122,7 +132,17 @@ export async function POST(request: Request) {
         }
       }
     } catch (e: any) {
-      apiJson = { error: e.message };
+      const isAbort = e.name === 'AbortError';
+      const cause = e.cause ? String(e.cause) : undefined;
+      console.error('[3rd-party fetch error]', {
+        message: e.message,
+        cause,
+        isTimeout: isAbort,
+      });
+      apiJson = {
+        error: isAbort ? 'Request timed out after 60s' : e.message,
+        ...(cause ? { cause } : {}),
+      };
     }
 
     // Insert API Log
@@ -148,7 +168,7 @@ export async function POST(request: Request) {
       // Update the note in topup_history to include the real exact tracking id
       await dbClient.query(
         `UPDATE sales.topup_history SET note = $1 WHERE ref_id = $2 AND type = 'order'`,
-        [`Thanh toán cước vận đơn ${tracking}`, orderId]
+        [`Payment for shipment ${tracking}`, orderId]
       );
 
       return NextResponse.json({ 
@@ -169,7 +189,7 @@ export async function POST(request: Request) {
         await dbClient.query(
           `INSERT INTO sales.topup_history (username, amount, after_balance, type, ref_id, note, by_user)
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [session.username, finalPrice, refundBal, 'refund', orderId, `Hoàn tiền cước do API tạo nhãn thất bại`, 'system']
+          [session.username, finalPrice, refundBal, 'refund', orderId, `Refund: label creation API failed`, 'system']
         );
       }
       // Set order to FAILED
@@ -181,7 +201,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ 
         success: false, 
-        message: apiJson.message || apiJson.error || 'Lỗi từ nhà mạng vận chuyển, đã hoàn tiền tự động.'
+        message: apiJson.message || apiJson.error || 'Carrier API error. Your balance has been refunded.'
       }, { status: 400 });
     }
 
