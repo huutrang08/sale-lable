@@ -16,6 +16,8 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 9030,
+        DATABASE_URL: 'postgres://postgres:Abc%241243@14.224.185.1:5432/ship_partner',
+        JWT_SECRET: 'shiplabel-super-secret-key-32chars!',
       },
       // Log files (tuỳ chỉnh đường dẫn nếu cần)
       out_file: './logs/pm2-out.log',
