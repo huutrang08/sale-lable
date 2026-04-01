@@ -2,20 +2,55 @@
 
 import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
+import { Card, Alert, Spinner, Field, Modal, inputCls } from '@/components/ui';
+import type { ShipService, OrderPayload, Order } from '@/types';
 
-import { Card, Alert, Spinner, Field, inputCls } from '@/components/ui';
-import type { ShipService, OrderPayload } from '@/types';
-import LabelModal from './LabelModal';
+// ── ZIP split-input: stores { left, right } per field key
+type ZipParts = { left: string; right: string };
+
+function ZipInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  // Parse existing value ("12345-6789" or "12345")
+  const dash = value.indexOf('-');
+  const initLeft = dash >= 0 ? value.slice(0, dash) : value;
+  const initRight = dash >= 0 ? value.slice(dash + 1) : '';
+  const [parts, setParts] = useState<ZipParts>({ left: initLeft, right: initRight });
+
+  function update(next: ZipParts) {
+    setParts(next);
+    const combined = next.right ? `${next.left}-${next.right}` : next.left;
+    onChange(combined);
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        className={inputCls + ' flex-1 min-w-0'}
+        placeholder="12345"
+        maxLength={10}
+        value={parts.left}
+        onChange={e => update({ ...parts, left: e.target.value })}
+      />
+      <span className="text-slate-400 font-bold shrink-0">-</span>
+      <input
+        className={inputCls + ' flex-1 min-w-0'}
+        placeholder="6789 (opt)"
+        maxLength={10}
+        value={parts.right}
+        onChange={e => update({ ...parts, right: e.target.value })}
+      />
+    </div>
+  );
+}
 
 const SECTIONS: [string, string][] = [
-  ['fromName','Name *'], ['fromCompany','Company'], ['fromAddress','Address *'],
-  ['fromAddress2','Address 2'], ['fromCity','City *'], ['fromState','State *'],
-  ['fromZip','ZIP *'], ['fromCountry','Country'],
+  ['fromName', 'Name *'], ['fromCompany', 'Company'], ['fromAddress', 'Address *'],
+  ['fromAddress2', 'Address 2'], ['fromCity', 'City *'], ['fromState', 'State *'],
+  ['fromZip', 'ZIP *'], ['fromCountry', 'Country'],
 ];
 const TO_SECTIONS: [string, string][] = [
-  ['toName','Name *'], ['toCompany','Company'], ['toAddress','Address *'],
-  ['toAddress2','Address 2'], ['toCity','City *'], ['toState','State *'],
-  ['toZip','ZIP *'], ['toCountry','Country'],
+  ['toName', 'Name *'], ['toCompany', 'Company'], ['toAddress', 'Address *'],
+  ['toAddress2', 'Address 2'], ['toCity', 'City *'], ['toState', 'State *'],
+  ['toZip', 'ZIP *'], ['toCountry', 'Country'],
 ];
 
 export default function CreateTab() {
@@ -23,15 +58,15 @@ export default function CreateTab() {
   const [loadingSvc, setLoadingSvc] = useState(true);
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
-  const [labelResult, setLabelResult] = useState<{ d: Record<string,unknown>; price: number } | null>(null);
+  const [orderDetail, setOrderDetail] = useState<Order | null>(null);
 
   // Form state
   const [form, setForm] = useState<Record<string, string>>({
-    fromName:'', fromCompany:'', fromAddress:'', fromAddress2:'',
-    fromCity:'', fromState:'', fromZip:'', fromCountry:'US',
-    toName:'', toCompany:'', toAddress:'', toAddress2:'',
-    toCity:'', toState:'', toZip:'', toCountry:'US',
-    weight:'', length:'', width:'', height:'', ref1:'', ref2:'', desc:'',
+    fromName: '', fromCompany: '', fromAddress: '', fromAddress2: '',
+    fromCity: '', fromState: '', fromZip: '', fromCountry: 'US',
+    toName: '', toCompany: '', toAddress: '', toAddress2: '',
+    toCity: '', toState: '', toZip: '', toCountry: 'US',
+    weight: '', length: '', width: '', height: '', ref1: '', ref2: '', desc: '',
   });
 
   useEffect(() => {
@@ -70,7 +105,7 @@ export default function CreateTab() {
     if (!selectedService || !selectedService.prices) return null;
     const w = parseFloat(form.weight) || 0;
     if (w <= 0) return null;
-    
+
     // Simple frontend logic match backend
     const prices = selectedService.prices;
     let finalPrice = prices[prices.length - 1];
@@ -87,7 +122,7 @@ export default function CreateTab() {
   async function createOrder() {
     setMsg(null);
     if (!selectedService) return setMsg({ text: '⚠️ Please select a shipping service', type: 'error' });
-    const required = ['fromName','fromAddress','fromCity','fromState','fromZip','toName','toAddress','toCity','toState','toZip','weight'];
+    const required = ['fromName', 'fromAddress', 'fromCity', 'fromState', 'fromZip', 'toName', 'toAddress', 'toCity', 'toState', 'toZip', 'weight'];
     for (const f of required) {
       if (!form[f]?.trim()) return setMsg({ text: `⚠️ Please enter: ${f}`, type: 'error' });
     }
@@ -104,9 +139,9 @@ export default function CreateTab() {
       toAddress: form.toAddress.trim(), toAddress2: form.toAddress2.trim(),
       toZip: form.toZip.trim(), toState: form.toState.trim().toUpperCase(),
       toCity: form.toCity.trim(), toCountry: form.toCountry.trim() || 'US',
-      weight: parseFloat(form.weight) || 0, 
+      weight: parseFloat(form.weight) || 0,
       length: parseFloat(form.length) || 0,
-      height: parseFloat(form.height) || 0, 
+      height: parseFloat(form.height) || 0,
       width: parseFloat(form.width) || 0,
       reference_1: form.ref1.trim(), reference_2: form.ref2.trim(),
       discription: form.desc.trim(),
@@ -121,9 +156,31 @@ export default function CreateTab() {
       const data = await res.json();
 
       if (data.success) {
-        setLabelResult({ d: data, price: data.price });
-        await updateBalance(); 
-        setMsg({ text: 'Order created successfully!', type: 'success' });
+        // Build an Order-like object for the detail modal
+        setOrderDetail({
+          id: data.order_id || '',
+          tracking_id: data.tracking_id || '',
+          pdf: data.pdf_url || '',
+          price: data.price,
+          service: selectedService?.name || '',
+          weight: payload.weight,
+          length: payload.length,
+          width: payload.width,
+          height: payload.height,
+          from_name: payload.fromName,
+          from_address: payload.fromAddress,
+          from_city: payload.fromCity,
+          from_state: payload.fromState,
+          from_zip: payload.fromZip,
+          to_name: payload.toName,
+          to_address: payload.toAddress,
+          to_city: payload.toCity,
+          to_state: payload.toState,
+          to_zip: payload.toZip,
+          created_at: new Date().toLocaleString('en-US'),
+          raw_response: null,
+        } as any);
+        await updateBalance();
       } else {
         setMsg({ text: `❌ ${data.message || 'Carrier error'}`, type: 'error' });
       }
@@ -147,27 +204,37 @@ export default function CreateTab() {
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-blue-500/20 blur-2xl" />
         <div className="relative z-10">
           <div className="text-blue-100 font-medium tracking-wide flex items-center gap-2">
-            Account Balance 
+            Account Balance
             <span className="px-2 py-0.5 rounded-full bg-blue-500/30 border border-blue-400/40 text-[10px] font-bold">LIVE</span>
           </div>
           <div className="text-4xl sm:text-5xl font-extrabold mt-1 tracking-tight">${(Number(currentUser?.balance) || 0).toFixed(2)}</div>
-          <div className="text-sm font-medium text-blue-200 mt-4 flex items-center gap-2">
-            <span className="opacity-70">Using API Key:</span>
-            <code className="px-2 py-1 rounded bg-slate-900/40 border border-slate-700/50 font-mono text-xs">
-              {(currentUser as any)?.api_key_id ? 'API Key (' + String((currentUser as any).api_key_id).substring(0,4) + '...)' : 'Master Key'}
-            </code>
+          <div className="flex items-center gap-3 mt-4 flex-wrap">
+            <div className="text-sm font-medium text-blue-200 flex items-center gap-2">
+              <span className="opacity-70">API Key:</span>
+              <code className="px-2 py-1 rounded bg-slate-900/40 border border-slate-700/50 font-mono text-xs">
+                {(currentUser as any)?.api_key_id ? 'API Key (' + String((currentUser as any).api_key_id).substring(0, 4) + '...)' : 'Master Key'}
+              </code>
+            </div>
           </div>
         </div>
-        <div className="relative z-10 hidden sm:flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-inner">
-          <span className="text-4xl">💰</span>
-        </div>
+        {/* Telegram CTA — right side */}
+        <a
+          href="https://t.me/minhte1102"
+          target="_blank"
+          rel="noreferrer"
+          className="relative z-10 shrink-0 flex flex-col items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-white/15 hover:bg-white/25 active:scale-95 border border-white/30 text-white font-bold transition-all shadow-lg backdrop-blur-sm"
+        >
+          <svg viewBox="0 0 24 24" className="w-7 h-7 fill-current"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248-1.97 9.289c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.085 14.09l-2.97-.924c-.643-.204-.657-.643.136-.953L16.95 7.3c.535-.194 1.003.13.612.948z" /></svg>
+          <span className="text-sm font-extrabold tracking-wide">Top Up</span>
+          <span className="text-[10px] text-white/70 font-medium">Contact us</span>
+        </a>
       </div>
 
       {/* Services */}
       <Card title="1. Select shipping service">
         {loadingSvc ? (
           <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-3">
-            <Spinner size={24} /> 
+            <Spinner size={24} />
             <span className="font-semibold text-sm">Syncing routes...</span>
           </div>
         ) : (
@@ -204,8 +271,12 @@ export default function CreateTab() {
             </div>
             {SECTIONS.map(([k, l]) => (
               <Field key={k} label={l}>
-                <input className={inputCls} placeholder={k === 'fromState' ? 'CA' : k === 'fromZip' ? '90001' : ''}
-                  value={form[k]} onChange={setF(k)} maxLength={k === 'fromState' || k === 'fromCountry' ? 2 : undefined} />
+                {k === 'fromZip' ? (
+                  <ZipInput value={form[k]} onChange={v => setForm(p => ({ ...p, [k]: v }))} />
+                ) : (
+                  <input className={inputCls} placeholder={k === 'fromState' ? 'CA' : ''}
+                    value={form[k]} onChange={setF(k)} maxLength={k === 'fromState' || k === 'fromCountry' ? 2 : undefined} />
+                )}
               </Field>
             ))}
           </div>
@@ -216,8 +287,12 @@ export default function CreateTab() {
             </div>
             {TO_SECTIONS.map(([k, l]) => (
               <Field key={k} label={l}>
-                <input className={inputCls} placeholder={k === 'toState' ? 'NY' : k === 'toZip' ? '10001' : ''}
-                  value={form[k]} onChange={setF(k)} maxLength={k === 'toState' || k === 'toCountry' ? 2 : undefined} />
+                {k === 'toZip' ? (
+                  <ZipInput value={form[k]} onChange={v => setForm(p => ({ ...p, [k]: v }))} />
+                ) : (
+                  <input className={inputCls} placeholder={k === 'toState' ? 'NY' : ''}
+                    value={form[k]} onChange={setF(k)} maxLength={k === 'toState' || k === 'toCountry' ? 2 : undefined} />
+                )}
               </Field>
             ))}
           </div>
@@ -227,7 +302,7 @@ export default function CreateTab() {
       {/* Package info */}
       <Card title="3. Package Information">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          {[['weight','Weight (lbs) *'],['length','Length (in)'],['width','Width (in)'],['height','Height (in)']].map(([k,l]) => (
+          {[['weight', 'Weight (lbs) *'], ['length', 'Length (in)'], ['width', 'Width (in)'], ['height', 'Height (in)']].map(([k, l]) => (
             <Field key={k} label={l}>
               <input className={inputCls} type="number" step="0.1" min="0.1" value={form[k]} onChange={setF(k)} placeholder="0.0" />
             </Field>
@@ -240,7 +315,7 @@ export default function CreateTab() {
         <Field label="Package Description">
           <input className={inputCls} value={form.desc} onChange={setF('desc')} placeholder="Electronics shipment..." />
         </Field>
-        
+
         {est !== null && selectedService && (
           <div className="mt-6 flex items-center justify-between p-5 bg-emerald-50 rounded-2xl border border-emerald-200 shadow-sm animate-fade-in">
             <div className="flex items-center gap-3">
@@ -260,15 +335,85 @@ export default function CreateTab() {
         {creating ? <><Spinner /> Processing transaction...</> : '🚀 Confirm Create Label'}
       </button>
 
-      {labelResult && (
-        <LabelModal
-          open={!!labelResult}
-          onClose={() => setLabelResult(null)}
-          d={labelResult.d}
-          price={labelResult.price}
-          serviceName={selectedService?.name || ''}
-        />
-      )}
+      {orderDetail && (() => {
+        const d = orderDetail;
+        const isFailed = d.tracking_id === 'FAILED';
+        const isProcessing = d.tracking_id === 'PROCESSING';
+        const hasTracking = !isFailed && !isProcessing;
+        function fmt(v: unknown) { const n = Number(v); return isNaN(n) ? '0.00' : n.toFixed(2); }
+        return (
+          <Modal open title="" onClose={() => setOrderDetail(null)} width={600}>
+            {/* Hero */}
+            <div className={`-mx-8 -mt-8 mb-6 px-8 pt-8 pb-6 rounded-t-3xl ${'bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700'}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-2">Waybill</p>
+                  {hasTracking && (
+                    <div className="flex items-center gap-2">
+                      <code className="text-white font-black text-lg tracking-wider break-all">{d.tracking_id}</code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(d.tracking_id).then(() => showToast('📋 Copied!'))}
+                        className="shrink-0 w-7 h-7 rounded-lg bg-white/20 hover:bg-white/30 border border-white/30 text-white text-xs flex items-center justify-center"
+                      >📋</button>
+                    </div>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-1">Cost</p>
+                  <p className="text-3xl font-black text-white drop-shadow">${fmt(d.price)}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-4">
+                <span className="inline-flex items-center gap-1 bg-white/15 border border-white/25 text-white/90 text-[11px] font-semibold px-2.5 py-1 rounded-full">📦 {(d as any).service || 'N/A'}</span>
+                <span className="inline-flex items-center gap-1 bg-white/15 border border-white/25 text-white/90 text-[11px] font-semibold px-2.5 py-1 rounded-full">⚖️ {Number((d as any).weight || 0).toFixed(2)} lbs</span>
+              </div>
+            </div>
+            {/* Route */}
+            <div className="relative bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200/80 rounded-2xl p-5 mb-5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Route</p>
+              <div className="flex items-stretch gap-0">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">A</span>
+                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-wider">Sender</span>
+                  </div>
+                  <div className="font-black text-slate-800 text-sm leading-tight mb-1">{(d as any).from_name || '—'}</div>
+                  <div className="text-xs text-slate-500">{[(d as any).from_city, (d as any).from_state, (d as any).from_zip].filter(Boolean).join(', ') || '—'}</div>
+                </div>
+                <div className="flex flex-col items-center justify-center px-4 shrink-0">
+                  <div className="w-px h-5 bg-slate-300" />
+                  <div className="w-7 h-7 rounded-full border-2 border-slate-300 bg-white flex items-center justify-center text-slate-400 text-sm font-black">→</div>
+                  <div className="w-px h-5 bg-slate-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-purple-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">B</span>
+                    <span className="text-[10px] font-black text-purple-600 uppercase tracking-wider">Recipient</span>
+                  </div>
+                  <div className="font-black text-slate-800 text-sm leading-tight mb-1">{(d as any).to_name || '—'}</div>
+                  <div className="text-xs text-slate-500">{[(d as any).to_city, (d as any).to_state, (d as any).to_zip].filter(Boolean).join(', ') || '—'}</div>
+                </div>
+              </div>
+            </div>
+            {/* PDF */}
+            {d.pdf ? (
+              <div className="flex gap-3">
+                <a href={d.pdf} target="_blank" rel="noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98]">
+                  🖨️ Print PDF Label
+                </a>
+                <button
+                  onClick={() => { const a = document.createElement('a'); a.href = d.pdf!; a.download = 'label.pdf'; a.click(); }}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-2xl text-sm font-black transition-all active:scale-[0.98] shadow-sm">
+                  ⬇️ Download
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 py-3.5 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-sm text-slate-400 font-medium">No label file</div>
+            )}
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
