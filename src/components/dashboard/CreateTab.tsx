@@ -69,10 +69,53 @@ export default function CreateTab() {
     weight: '', length: '', width: '', height: '', ref1: '', ref2: '', desc: '',
   });
 
+  const [saveAddr, setSaveAddr] = useState(false);
+
+  // localStorage key scoped per user
+  const addrKey = currentUser ? `saved_from_addr_${currentUser.username}` : null;
+
+  // Address fields we save
+  const ADDR_FIELDS = ['fromName','fromCompany','fromAddress','fromAddress2','fromCity','fromState','fromZip','fromCountry'];
+
   useEffect(() => {
     if (!currentUser) return;
     loadServices();
+    // Load saved address if it exists
+    if (addrKey) {
+      try {
+        const saved = JSON.parse(localStorage.getItem(addrKey) || 'null');
+        if (saved && typeof saved === 'object') {
+          setSaveAddr(true);
+          setForm(p => ({ ...p, ...saved }));
+        }
+      } catch {}
+    }
   }, [currentUser]);
+
+  // Auto-save address when saveAddr is on
+  function handleFormChange(key: string, value: string) {
+    setForm(p => {
+      const next = { ...p, [key]: value };
+      if (saveAddr && addrKey && ADDR_FIELDS.includes(key)) {
+        const toSave: Record<string, string> = {};
+        ADDR_FIELDS.forEach(f => { toSave[f] = next[f] || ''; });
+        localStorage.setItem(addrKey, JSON.stringify(toSave));
+      }
+      return next;
+    });
+  }
+
+  function toggleSaveAddr(checked: boolean) {
+    setSaveAddr(checked);
+    if (!addrKey) return;
+    if (checked) {
+      const toSave: Record<string, string> = {};
+      ADDR_FIELDS.forEach(f => { toSave[f] = form[f] || ''; });
+      localStorage.setItem(addrKey, JSON.stringify(toSave));
+    } else {
+      localStorage.removeItem(addrKey);
+    }
+  }
 
   async function loadServices() {
     setLoadingSvc(true);
@@ -190,7 +233,7 @@ export default function CreateTab() {
     setCreating(false);
   }
 
-  function setF(key: string) { return (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [key]: e.target.value })); }
+  function setF(key: string) { return (e: React.ChangeEvent<HTMLInputElement>) => handleFormChange(key, e.target.value); }
 
   const est = priceEstimate();
 
@@ -263,6 +306,20 @@ export default function CreateTab() {
 
       {/* Addresses */}
       <Card title="2. Shipping Information">
+        {/* Save address toggle */}
+        <div className="flex items-center justify-end mb-4 -mt-2">
+          <label className="flex items-center gap-2 cursor-pointer select-none group">
+            <div
+              onClick={() => toggleSaveAddr(!saveAddr)}
+              className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${saveAddr ? 'bg-blue-500' : 'bg-slate-200'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${saveAddr ? 'translate-x-4' : ''}`} />
+            </div>
+            <span className="text-xs font-semibold text-slate-500 group-hover:text-slate-700 transition-colors">
+              💾 Remember sender address
+            </span>
+          </label>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
           <div className="space-y-1">
             <div className="flex items-center gap-2 mb-6 pb-2 border-b border-slate-100">
