@@ -18,7 +18,7 @@ export async function createSession(payload: any) {
   const cookieStore = await cookies();
   cookieStore.set('session', session, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.HTTPS === 'true', // chỉ bật khi chạy sau HTTPS/nginx
     expires: expiresAt,
     sameSite: 'lax',
     path: '/',
