@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Card, Alert, Spinner, Field, Modal, inputCls } from '@/components/ui';
 import type { ShipService, OrderPayload, Order } from '@/types';
+import OrderDetailModal from '@/components/OrderDetailModal';
 
 const ADDR_FIELDS = ['fromName', 'fromCompany', 'fromAddress', 'fromAddress2', 'fromCity', 'fromState', 'fromZip', 'fromCountry'];
 const PAGE_SIZE = 20;
@@ -310,12 +311,19 @@ export default function CreateTab() {
         setCreating(false);
         setOrderDetail(detail);
         updateBalance();
+        showToast('✅ Label created successfully!');
         return;
       } else {
-        setMsg({ text: `❌ ${data.message || 'Carrier error'}`, type: 'error' });
+        const errMsg = `❌ ${data.message || 'Carrier error'}`;
+        setMsg({ text: errMsg, type: 'error' });
+        showToast(errMsg);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (e: unknown) {
-      setMsg({ text: '❌ Connection error: ' + (e instanceof Error ? e.message : 'Unknown error'), type: 'error' });
+      const errMsg = '❌ Connection error: ' + (e instanceof Error ? e.message : 'Unknown error');
+      setMsg({ text: errMsg, type: 'error' });
+      showToast(errMsg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     setCreating(false);
   }
@@ -403,8 +411,8 @@ export default function CreateTab() {
                     key={page}
                     onClick={() => setSvcPage(page)}
                     className={`w-8 h-8 rounded-xl text-sm font-bold transition-all ${page === svcPage
-                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
-                        : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                      : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
                       }`}
                   >
                     {page}
@@ -510,7 +518,13 @@ export default function CreateTab() {
         {creating ? <><Spinner /> Processing transaction...</> : '🚀 Confirm Create Label'}
       </button>
 
-      {orderDetail && <OrderSuccessModal d={orderDetail} onClose={() => setOrderDetail(null)} showToast={showToast} />}
+      {orderDetail && (
+        <OrderDetailModal
+          order={orderDetail}
+          onClose={() => setOrderDetail(null)}
+          showToast={showToast}
+        />
+      )}
     </div>
   );
 }

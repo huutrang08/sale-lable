@@ -12,12 +12,12 @@ export default function ServicesTab() {
     if (services.length === 0) {
       fetch('/api/services').then(r => r.json()).then(j => {
         if (j.success) setServices(j.data);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [services.length, setServices]);
 
   return (
-    <Card title="🚀 Danh sách dịch vụ & Bảng giá">
+    <Card title="🚀 List of services & Price list">
       {!services.length ? (
         <div className="text-center py-8 text-gray-300"><Spinner /> Đang tải...</div>
       ) : (

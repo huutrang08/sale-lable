@@ -65,7 +65,7 @@ export async function POST(request: Request) {
         to_name, to_address, to_city, to_state, to_zip, api_key_label, raw_response, created_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())`,
       [
-        orderId, session.username, 'PROCESSING', '', finalPrice, pricing.name, label_id, w, parseFloat(length)||0, parseFloat(width)||0, parseFloat(height)||0,
+        orderId, session.username, 'PROCESSING', '', finalPrice, pricing.name, label_id, w, parseFloat(length) || 0, parseFloat(width) || 0, parseFloat(height) || 0,
         fromName, fromAddress, fromCity, fromState, fromZip,
         toName, toAddress, toCity, toState, toZip, 'Default API', JSON.stringify({ status: 'calling external api' })
       ]
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       label_id,
       fromName, fromCompany: fromCompany || '', fromAddress, fromAddress2: fromAddress2 || '', fromZip, fromState, fromCity, fromCountry: fromCountry || 'US',
       toName, toCompany: toCompany || '', toAddress, toAddress2: toAddress2 || '', toZip, toState, toCity, toCountry: toCountry || 'US',
-      weight: w, length: parseFloat(length)||0, width: parseFloat(width)||0, height: parseFloat(height)||0,
+      weight: w, length: parseFloat(length) || 0, width: parseFloat(width) || 0, height: parseFloat(height) || 0,
       reference_1: reference_1 || '', reference_2: reference_2 || '', discription: discription || ''
     };
 
@@ -160,19 +160,22 @@ export async function POST(request: Request) {
       const tracking = apiJson.data.tracking_id || 'UNKNOWN';
       const pdf = apiJson.data.pdf;
 
-      await dbClient.query(
-        `UPDATE sales.orders SET tracking_id = $1, pdf = $2, raw_response = $3 WHERE id = $4`,
-        [tracking, pdf, JSON.stringify(apiJson), orderId]
-      );
+      try {
+        await dbClient.query(
+          `UPDATE sales.orders SET tracking_id = $1, pdf = $2, raw_response = $3 WHERE id = $4`,
+          [tracking, pdf, JSON.stringify(apiJson), orderId]
+        );
+        await dbClient.query(
+          `UPDATE sales.topup_history SET note = $1 WHERE ref_id = $2 AND type = 'order'`,
+          [`Payment for shipment ${tracking}`, orderId]
+        );
+      } catch (dbErr: any) {
+        console.error('[DB update after success]', dbErr);
+        // Không refund — API đã tạo label thành công, chỉ log lỗi DB
+      }
 
-      // Update the note in topup_history to include the real exact tracking id
-      await dbClient.query(
-        `UPDATE sales.topup_history SET note = $1 WHERE ref_id = $2 AND type = 'order'`,
-        [`Payment for shipment ${tracking}`, orderId]
-      );
-
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         tracking_id: tracking,
         pdf_url: pdf,
         price: finalPrice
@@ -183,9 +186,9 @@ export async function POST(request: Request) {
       const refundU = await dbClient.query('SELECT balance FROM sales.users WHERE username = $1 FOR UPDATE', [session.username]);
       if (refundU.rows.length > 0) {
         const refundBal = parseFloat(refundU.rows[0].balance) + finalPrice;
-        
+
         await dbClient.query('UPDATE sales.users SET balance = $1 WHERE username = $2', [refundBal, session.username]);
-        
+
         await dbClient.query(
           `INSERT INTO sales.topup_history (username, amount, after_balance, type, ref_id, note, by_user)
            VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -199,8 +202,8 @@ export async function POST(request: Request) {
       );
       await dbClient.query('COMMIT');
 
-      return NextResponse.json({ 
-        success: false, 
+      return NextResponse.json({
+        success: false,
         message: apiJson.message || apiJson.error || 'Carrier API error. Your balance has been refunded.'
       }, { status: 400 });
     }

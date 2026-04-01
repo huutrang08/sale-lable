@@ -4,6 +4,8 @@ import React, { JSX, useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Card, Modal, Spinner } from '@/components/ui';
 import type { Order } from '@/types';
+import OrderDetailModal from '@/components/OrderDetailModal';
+
 
 function fmt(v: unknown): string {
   const n = Number(v);
@@ -302,8 +304,8 @@ export default function OrdersTab() {
                     key={p}
                     onClick={() => setPage(p as number)}
                     className={`min-w-[32px] px-2 py-1.5 text-xs font-bold rounded-lg border transition-all ${page === p
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                       }`}
                   >{p}</button>
                 )
@@ -319,7 +321,13 @@ export default function OrdersTab() {
       )}
 
       {/* Detail Modal */}
-      {detail ? renderDetailModal(detail) : null}
+      {detail && (
+        <OrderDetailModal
+          order={detail}
+          onClose={() => setDetail(null)}
+          showToast={showToast}
+        />
+      )}
     </Card>
   );
 }
