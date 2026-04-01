@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Card, Alert, Spinner, Field, Modal, inputCls } from '@/components/ui';
 import type { ShipService, OrderPayload, Order } from '@/types';
 
-// ── ZIP split-input: stores { left, right } per field key
+const ADDR_FIELDS = ['fromName', 'fromCompany', 'fromAddress', 'fromAddress2', 'fromCity', 'fromState', 'fromZip', 'fromCountry'];
+const PAGE_SIZE = 20;
+
 type ZipParts = { left: string; right: string };
 
 function ZipInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  // Parse existing value ("12345-6789" or "12345")
   const dash = value.indexOf('-');
   const initLeft = dash >= 0 ? value.slice(0, dash) : value;
   const initRight = dash >= 0 ? value.slice(dash + 1) : '';
@@ -53,14 +54,98 @@ const TO_SECTIONS: [string, string][] = [
   ['toZip', 'ZIP *'], ['toCountry', 'Country'],
 ];
 
+function OrderSuccessModal({ d, onClose, showToast }: { d: any; onClose: () => void; showToast: (m: string) => void }) {
+  const isFailed = d.tracking_id === 'FAILED';
+  const isProcessing = d.tracking_id === 'PROCESSING';
+  const hasTracking = !isFailed && !isProcessing;
+  function fmt(v: unknown) { const n = Number(v); return isNaN(n) ? '0.00' : n.toFixed(2); }
+
+  return (
+    <Modal open title="" onClose={onClose} width={600}>
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 -mx-8 -mt-8 mb-6 px-8 pt-8 pb-6 rounded-t-3xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-2">Waybill</p>
+            {hasTracking && (
+              <div className="flex items-center gap-2">
+                <code className="text-white font-black text-lg tracking-wider break-all">{d.tracking_id}</code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(d.tracking_id).then(() => showToast('📋 Copied!'))}
+                  className="shrink-0 w-7 h-7 rounded-lg text-white text-xs flex items-center justify-center transition-colors"
+                  style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}
+                >📋</button>
+              </div>
+            )}
+            {isFailed && <span className="inline-flex items-center gap-1.5 text-white border border-white/30 px-3 py-1 rounded-full text-sm font-black" style={{ background: 'rgba(255,255,255,0.2)' }}>❌ FAILED</span>}
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-1">Cost</p>
+            <p className="text-3xl font-black text-white drop-shadow">${fmt(d.price)}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-4">
+          <span className="inline-flex items-center gap-1 text-white/90 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)' }}>📦 {d.service || 'N/A'}</span>
+          <span className="inline-flex items-center gap-1 text-white/90 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)' }}>⚖️ {Number(d.weight || 0).toFixed(2)} lbs</span>
+        </div>
+      </div>
+
+      {/* Route */}
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-5">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Route</p>
+        <div className="flex items-stretch">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">A</span>
+              <span className="text-[10px] font-black text-blue-600 uppercase tracking-wider">Sender</span>
+            </div>
+            <div className="font-black text-slate-800 text-sm leading-tight">{d.from_name || '—'}</div>
+            <div className="text-xs text-slate-500">{[d.from_city, d.from_state, d.from_zip].filter(Boolean).join(', ') || '—'}</div>
+          </div>
+          <div className="flex flex-col items-center justify-center px-4 shrink-0">
+            <div className="w-px h-5 bg-slate-300" />
+            <div className="w-7 h-7 rounded-full border-2 border-slate-300 bg-white flex items-center justify-center text-slate-400 text-sm font-black">→</div>
+            <div className="w-px h-5 bg-slate-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="w-6 h-6 rounded-full bg-purple-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">B</span>
+              <span className="text-[10px] font-black text-purple-600 uppercase tracking-wider">Recipient</span>
+            </div>
+            <div className="font-black text-slate-800 text-sm leading-tight">{d.to_name || '—'}</div>
+            <div className="text-xs text-slate-500">{[d.to_city, d.to_state, d.to_zip].filter(Boolean).join(', ') || '—'}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* PDF */}
+      {d.pdf ? (
+        <div className="flex gap-3">
+          <a href={d.pdf} target="_blank" rel="noreferrer"
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-2xl text-sm font-black shadow-lg transition-all active:scale-[0.98]">
+            🖨️ Print PDF Label
+          </a>
+          <button
+            onClick={() => { const a = document.createElement('a'); a.href = d.pdf; a.download = 'label.pdf'; a.click(); }}
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-2xl text-sm font-black transition-all active:scale-[0.98] shadow-sm">
+            ⬇️ Download
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center py-3.5 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-sm text-slate-400">No label file</div>
+      )}
+    </Modal>
+  );
+}
+
 export default function CreateTab() {
   const { currentUser, services, setServices, selectedService, setSelectedService, updateBalance, showToast } = useApp();
   const [loadingSvc, setLoadingSvc] = useState(true);
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [orderDetail, setOrderDetail] = useState<Order | null>(null);
+  const [svcPage, setSvcPage] = useState(1);
 
-  // Form state
   const [form, setForm] = useState<Record<string, string>>({
     fromName: '', fromCompany: '', fromAddress: '', fromAddress2: '',
     fromCity: '', fromState: '', fromZip: '', fromCountry: 'US',
@@ -70,33 +155,31 @@ export default function CreateTab() {
   });
 
   const [saveAddr, setSaveAddr] = useState(false);
+  const saveAddrRef = useRef(false);
 
-  // localStorage key scoped per user
   const addrKey = currentUser ? `saved_from_addr_${currentUser.username}` : null;
 
-  // Address fields we save
-  const ADDR_FIELDS = ['fromName','fromCompany','fromAddress','fromAddress2','fromCity','fromState','fromZip','fromCountry'];
+  const totalSvcPages = Math.ceil(services.length / PAGE_SIZE);
+  const pagedServices = services.slice((svcPage - 1) * PAGE_SIZE, svcPage * PAGE_SIZE);
 
   useEffect(() => {
     if (!currentUser) return;
     loadServices();
-    // Load saved address if it exists
-    if (addrKey) {
-      try {
-        const saved = JSON.parse(localStorage.getItem(addrKey) || 'null');
-        if (saved && typeof saved === 'object') {
-          setSaveAddr(true);
-          setForm(p => ({ ...p, ...saved }));
-        }
-      } catch {}
-    }
+    const key = `saved_from_addr_${currentUser.username}`;
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || 'null');
+      if (saved && typeof saved === 'object' && Object.keys(saved).length > 0) {
+        saveAddrRef.current = true;
+        setSaveAddr(true);
+        setForm(p => ({ ...p, ...saved }));
+      }
+    } catch { }
   }, [currentUser]);
 
-  // Auto-save address when saveAddr is on
   function handleFormChange(key: string, value: string) {
     setForm(p => {
       const next = { ...p, [key]: value };
-      if (saveAddr && addrKey && ADDR_FIELDS.includes(key)) {
+      if (saveAddrRef.current && addrKey && ADDR_FIELDS.includes(key)) {
         const toSave: Record<string, string> = {};
         ADDR_FIELDS.forEach(f => { toSave[f] = next[f] || ''; });
         localStorage.setItem(addrKey, JSON.stringify(toSave));
@@ -106,14 +189,17 @@ export default function CreateTab() {
   }
 
   function toggleSaveAddr(checked: boolean) {
+    saveAddrRef.current = checked;
     setSaveAddr(checked);
     if (!addrKey) return;
     if (checked) {
       const toSave: Record<string, string> = {};
       ADDR_FIELDS.forEach(f => { toSave[f] = form[f] || ''; });
       localStorage.setItem(addrKey, JSON.stringify(toSave));
+      showToast('💾 Sender address saved!');
     } else {
       localStorage.removeItem(addrKey);
+      showToast('🗑️ Address removed from memory');
     }
   }
 
@@ -124,6 +210,7 @@ export default function CreateTab() {
       const json = await res.json();
       if (json.success && json.data) {
         setServices(json.data);
+        setSvcPage(1);
       } else {
         throw new Error('Fallback services error');
       }
@@ -148,8 +235,6 @@ export default function CreateTab() {
     if (!selectedService || !selectedService.prices) return null;
     const w = parseFloat(form.weight) || 0;
     if (w <= 0) return null;
-
-    // Simple frontend logic match backend
     const prices = selectedService.prices;
     let finalPrice = prices[prices.length - 1];
     const weightRanges = [5, 10, 25, 40, 70];
@@ -199,8 +284,7 @@ export default function CreateTab() {
       const data = await res.json();
 
       if (data.success) {
-        // Build an Order-like object for the detail modal
-        setOrderDetail({
+        const detail = {
           id: data.order_id || '',
           tracking_id: data.tracking_id || '',
           pdf: data.pdf_url || '',
@@ -222,8 +306,11 @@ export default function CreateTab() {
           to_zip: payload.toZip,
           created_at: new Date().toLocaleString('en-US'),
           raw_response: null,
-        } as any);
-        await updateBalance();
+        } as any;
+        setCreating(false);
+        setOrderDetail(detail);
+        updateBalance();
+        return;
       } else {
         setMsg({ text: `❌ ${data.message || 'Carrier error'}`, type: 'error' });
       }
@@ -241,7 +328,7 @@ export default function CreateTab() {
     <div className="max-w-4xl mx-auto">
       {msg && <Alert type={msg.type}>{msg.text}</Alert>}
 
-      {/* Premium Balance card */}
+      {/* Balance card */}
       <div className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-indigo-600 to-indigo-900 text-white rounded-3xl p-8 mb-8 shadow-[0_10px_40px_-10px_rgba(79,70,229,0.5)] flex items-center justify-between border border-blue-400/30">
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-blue-500/20 blur-2xl" />
@@ -260,7 +347,6 @@ export default function CreateTab() {
             </div>
           </div>
         </div>
-        {/* Telegram CTA — right side */}
         <a
           href="https://t.me/minhte1102"
           target="_blank"
@@ -281,32 +367,64 @@ export default function CreateTab() {
             <span className="font-semibold text-sm">Syncing routes...</span>
           </div>
         ) : (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {services.map(s => {
-              const isActive = selectedService?.id === s.id;
-              return (
-                <div key={s.id}
-                  onClick={() => setSelectedService(isActive ? null : s)}
-                  className={`relative p-5 rounded-2xl cursor-pointer transition-all duration-300 border ${isActive ? 'bg-blue-50/80 border-blue-500 ring-4 ring-blue-500/10 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-400 hover:shadow-md'}`}>
-                  {isActive && <div className="absolute top-4 right-4 w-3 h-3 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.8)]" />}
-                  <div className="pr-6">
-                    <div className="font-extrabold text-slate-800 text-base mb-1">{s.name}</div>
-                    <div className="text-emerald-600 font-bold text-sm mb-2">{getPriceRange(s.id)}</div>
-                    <div className="flex flex-col gap-1 text-xs font-medium">
-                      <span className="text-slate-500 flex items-center gap-1.5"><span className="opacity-50">⚖️</span> Max: {s.max_weight || '70 lbs'}</span>
-                      {getServiceTime(s.id) && <span className="text-indigo-600 flex items-center gap-1.5"><span className="opacity-50">⏱</span> {getServiceTime(s.id)}</span>}
+          <>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {pagedServices.map(s => {
+                const isActive = selectedService?.id === s.id;
+                return (
+                  <div key={s.id}
+                    onClick={() => setSelectedService(isActive ? null : s)}
+                    className={`relative p-5 rounded-2xl cursor-pointer transition-all duration-300 border ${isActive ? 'bg-blue-50/80 border-blue-500 ring-4 ring-blue-500/10 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-400 hover:shadow-md'}`}>
+                    {isActive && <div className="absolute top-4 right-4 w-3 h-3 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.8)]" />}
+                    <div className="pr-6">
+                      <div className="font-extrabold text-slate-800 text-base mb-1">{s.name}</div>
+                      <div className="text-emerald-600 font-bold text-sm mb-2">{getPriceRange(s.id)}</div>
+                      <div className="flex flex-col gap-1 text-xs font-medium">
+                        <span className="text-slate-500 flex items-center gap-1.5"><span className="opacity-50">⚖️</span> Max: {s.max_weight || '70 lbs'}</span>
+                        {getServiceTime(s.id) && <span className="text-indigo-600 flex items-center gap-1.5"><span className="opacity-50">⏱</span> {getServiceTime(s.id)}</span>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+
+            {totalSvcPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-5 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => setSvcPage(p => Math.max(1, p - 1))}
+                  disabled={svcPage === 1}
+                  className="px-3 py-1.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  ← Prev
+                </button>
+                {Array.from({ length: totalSvcPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => setSvcPage(page)}
+                    className={`w-8 h-8 rounded-xl text-sm font-bold transition-all ${page === svcPage
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30'
+                        : 'text-slate-500 bg-slate-100 hover:bg-slate-200'
+                      }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setSvcPage(p => Math.min(totalSvcPages, p + 1))}
+                  disabled={svcPage === totalSvcPages}
+                  className="px-3 py-1.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
       {/* Addresses */}
       <Card title="2. Shipping Information">
-        {/* Save address toggle */}
         <div className="flex items-center justify-end mb-4 -mt-2">
           <label className="flex items-center gap-2 cursor-pointer select-none group">
             <div
@@ -392,85 +510,7 @@ export default function CreateTab() {
         {creating ? <><Spinner /> Processing transaction...</> : '🚀 Confirm Create Label'}
       </button>
 
-      {orderDetail && (() => {
-        const d = orderDetail;
-        const isFailed = d.tracking_id === 'FAILED';
-        const isProcessing = d.tracking_id === 'PROCESSING';
-        const hasTracking = !isFailed && !isProcessing;
-        function fmt(v: unknown) { const n = Number(v); return isNaN(n) ? '0.00' : n.toFixed(2); }
-        return (
-          <Modal open title="" onClose={() => setOrderDetail(null)} width={600}>
-            {/* Hero */}
-            <div className={`-mx-8 -mt-8 mb-6 px-8 pt-8 pb-6 rounded-t-3xl ${'bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700'}`}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-2">Waybill</p>
-                  {hasTracking && (
-                    <div className="flex items-center gap-2">
-                      <code className="text-white font-black text-lg tracking-wider break-all">{d.tracking_id}</code>
-                      <button
-                        onClick={() => navigator.clipboard.writeText(d.tracking_id).then(() => showToast('📋 Copied!'))}
-                        className="shrink-0 w-7 h-7 rounded-lg bg-white/20 hover:bg-white/30 border border-white/30 text-white text-xs flex items-center justify-center"
-                      >📋</button>
-                    </div>
-                  )}
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-1">Cost</p>
-                  <p className="text-3xl font-black text-white drop-shadow">${fmt(d.price)}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-4">
-                <span className="inline-flex items-center gap-1 bg-white/15 border border-white/25 text-white/90 text-[11px] font-semibold px-2.5 py-1 rounded-full">📦 {(d as any).service || 'N/A'}</span>
-                <span className="inline-flex items-center gap-1 bg-white/15 border border-white/25 text-white/90 text-[11px] font-semibold px-2.5 py-1 rounded-full">⚖️ {Number((d as any).weight || 0).toFixed(2)} lbs</span>
-              </div>
-            </div>
-            {/* Route */}
-            <div className="relative bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200/80 rounded-2xl p-5 mb-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Route</p>
-              <div className="flex items-stretch gap-0">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span className="w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">A</span>
-                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-wider">Sender</span>
-                  </div>
-                  <div className="font-black text-slate-800 text-sm leading-tight mb-1">{(d as any).from_name || '—'}</div>
-                  <div className="text-xs text-slate-500">{[(d as any).from_city, (d as any).from_state, (d as any).from_zip].filter(Boolean).join(', ') || '—'}</div>
-                </div>
-                <div className="flex flex-col items-center justify-center px-4 shrink-0">
-                  <div className="w-px h-5 bg-slate-300" />
-                  <div className="w-7 h-7 rounded-full border-2 border-slate-300 bg-white flex items-center justify-center text-slate-400 text-sm font-black">→</div>
-                  <div className="w-px h-5 bg-slate-300" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span className="w-6 h-6 rounded-full bg-purple-500 text-white text-[10px] font-black flex items-center justify-center shrink-0">B</span>
-                    <span className="text-[10px] font-black text-purple-600 uppercase tracking-wider">Recipient</span>
-                  </div>
-                  <div className="font-black text-slate-800 text-sm leading-tight mb-1">{(d as any).to_name || '—'}</div>
-                  <div className="text-xs text-slate-500">{[(d as any).to_city, (d as any).to_state, (d as any).to_zip].filter(Boolean).join(', ') || '—'}</div>
-                </div>
-              </div>
-            </div>
-            {/* PDF */}
-            {d.pdf ? (
-              <div className="flex gap-3">
-                <a href={d.pdf} target="_blank" rel="noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-2xl text-sm font-black shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98]">
-                  🖨️ Print PDF Label
-                </a>
-                <button
-                  onClick={() => { const a = document.createElement('a'); a.href = d.pdf!; a.download = 'label.pdf'; a.click(); }}
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-2xl text-sm font-black transition-all active:scale-[0.98] shadow-sm">
-                  ⬇️ Download
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2 py-3.5 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-sm text-slate-400 font-medium">No label file</div>
-            )}
-          </Modal>
-        );
-      })()}
+      {orderDetail && <OrderSuccessModal d={orderDetail} onClose={() => setOrderDetail(null)} showToast={showToast} />}
     </div>
   );
 }

@@ -17,7 +17,7 @@ export async function GET() {
     // Format dates back using JS to display
     const orders = res.rows.map(o => ({
       ...o,
-      created_at: new Date(o.created_at).toLocaleString('vi-VN')
+      created_at: new Date(o.created_at).toLocaleString('en-US')
     }));
 
     return NextResponse.json({ success: true, data: orders });

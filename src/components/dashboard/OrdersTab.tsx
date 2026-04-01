@@ -16,6 +16,8 @@ export default function OrdersTab() {
   const [search, setSearch] = useState('');
   const [detail, setDetail] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
 
   useEffect(() => { load(); }, [currentUser]);
 
@@ -42,6 +44,12 @@ export default function OrdersTab() {
     o.to_name?.toLowerCase().includes(search.toLowerCase()) ||
     o.from_name?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Reset to page 1 when search changes
+  function handleSearch(v: string) { setSearch(v); setPage(1); }
 
   function StatusBadge({ id }: { id: string }): JSX.Element {
     if (id === 'FAILED') return <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-md text-xs font-bold">❌ FAILED</span>;
@@ -172,7 +180,7 @@ export default function OrdersTab() {
       <div className="p-5 border-b border-slate-100 flex gap-3 flex-col sm:flex-row items-stretch sm:items-center justify-between">
         <div className="relative flex-1 max-w-sm">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">🔍</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tracking, name..."
+          <input value={search} onChange={e => handleSearch(e.target.value)} placeholder="Search tracking, name..."
             className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium" />
         </div>
         <button onClick={load} disabled={loading}
@@ -201,10 +209,10 @@ export default function OrdersTab() {
             {!loading && filtered.length === 0 && (
               <tr><td colSpan={6} className="py-14 text-center text-slate-400 font-medium">No orders yet.</td></tr>
             )}
-            {!loading && filtered.map((o, i) => (
+            {!loading && paginated.map((o, i) => (
               <tr key={o.id} className="hover:bg-slate-50/80 transition-colors group align-middle">
                 {/* # */}
-                <td className="px-5 py-4 text-slate-400 text-xs hidden sm:table-cell">{i + 1}</td>
+                <td className="px-5 py-4 text-slate-400 text-xs hidden sm:table-cell">{(page - 1) * PAGE_SIZE + i + 1}</td>
 
                 {/* Tracking + Date */}
                 <td className="px-5 py-4 min-w-[150px]">
@@ -266,6 +274,49 @@ export default function OrdersTab() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100 bg-slate-50/50">
+          <span className="text-xs text-slate-500 font-medium">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} orders
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >← Prev</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+              .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...');
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === '...' ? (
+                  <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 text-xs">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p as number)}
+                    className={`min-w-[32px] px-2 py-1.5 text-xs font-bold rounded-lg border transition-all ${page === p
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      }`}
+                  >{p}</button>
+                )
+              )
+            }
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >Next →</button>
+          </div>
+        </div>
+      )}
 
       {/* Detail Modal */}
       {detail ? renderDetailModal(detail) : null}
