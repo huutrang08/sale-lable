@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Alert, Btn, Field, inputCls } from '@/components/ui';
+import { Alert, Btn, Field, inputCls, Spinner } from '@/components/ui';
 import type { User } from '@/types';
 
 export default function AuthScreen() {
   const { setCurrentUser, setActiveTab } = useApp();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // Login fields
   const [loginUser, setLoginUser] = useState('');
@@ -24,6 +25,7 @@ export default function AuthScreen() {
   async function doLogin() {
     if (!loginUser || !loginPass) return setMsg({ text: 'Please enter complete information', type: 'error' });
     setMsg(null);
+    setLoading(true);
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -39,12 +41,15 @@ export default function AuthScreen() {
       }
     } catch (err) {
       setMsg({ text: 'Network connection error', type: 'error' });
+    } finally {
+      setLoading(false);
     }
   }
 
   async function doRegister() {
     if (!regUser || !regName || !regPass) return setMsg({ text: 'Please enter all required fields', type: 'error' });
     setMsg(null);
+    setLoading(true);
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -69,6 +74,8 @@ export default function AuthScreen() {
       }
     } catch (err) {
       setMsg({ text: 'Server connection error', type: 'error' });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -111,8 +118,9 @@ export default function AuthScreen() {
                   onChange={e => setLoginPass(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && doLogin()} />
               </Field>
-              <button onClick={doLogin}
-                className="w-full mt-2 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98]">
+              <button onClick={doLogin} disabled={loading}
+                className="w-full mt-2 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                {loading && <Spinner size={16} />}
                 Login
               </button>
             </div>
@@ -133,8 +141,9 @@ export default function AuthScreen() {
               <Field label="Invite Code (optional)">
                 <input className={inputCls} placeholder="Enter invite code" value={regInvite} onChange={e => setRegInvite(e.target.value)} />
               </Field>
-              <button onClick={doRegister}
-                className="w-full mt-4 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98]">
+              <button onClick={doRegister} disabled={loading}
+                className="w-full mt-4 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                {loading && <Spinner size={16} />}
                 Create Account
               </button>
             </div>

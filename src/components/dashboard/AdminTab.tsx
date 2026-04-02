@@ -17,6 +17,10 @@ export default function AdminTab() {
   const [umData, setUmData] = useState({ username: '', name: '', email: '', pass: '', balance: '0', role: 'user', apiKeyId: '' });
   const [topupAmount, setTopupAmount] = useState('10');
   const [topupNote, setTopupNote] = useState('');
+  const [deductModal, setDeductModal] = useState<string | null>(null);
+  const [deductMsg, setDeductMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
+  const [deductAmount, setDeductAmount] = useState('10');
+  const [deductNote, setDeductNote] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -114,6 +118,31 @@ export default function AdminTab() {
   }
 
   const topupUser = topupModal ? users.find(x => x.username === topupModal) : null;
+  const deductUser = deductModal ? users.find(x => x.username === deductModal) : null;
+
+  async function doDeduct() {
+    const amount = parseFloat(deductAmount);
+    if (!amount || amount <= 0) return setDeductMsg({ text: '⚠️ Invalid amount', type: 'error' });
+
+    try {
+      const res = await fetch('/api/admin/users/deduct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: deductModal, amount, note: deductNote }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setDeductMsg({ text: `✅ Deducted $${amount.toFixed(2)}. New balance: $${data.balance.toFixed(2)}`, type: 'success' });
+        if (currentUser?.username === deductModal) updateBalance();
+        setTimeout(() => { setDeductModal(null); load(); }, 1200);
+      } else {
+        setDeductMsg({ text: '❌ ' + data.message, type: 'error' });
+      }
+    } catch {
+      setDeductMsg({ text: '❌ Network connection error', type: 'error' });
+    }
+  }
 
   return (
     <Card title="👥 User Management">
@@ -155,6 +184,8 @@ export default function AdminTab() {
                     <div className="flex gap-1.5 flex-wrap">
                       <button onClick={() => { setTopupModal(u.username); setTopupMsg(null); setTopupAmount('10'); setTopupNote(''); }}
                         className="px-2.5 py-1 bg-green-600 text-white text-xs font-semibold rounded-md">💰 Top Up</button>
+                      <button onClick={() => { setDeductModal(u.username); setDeductMsg(null); setDeductAmount('10'); setDeductNote(''); }}
+                        className="px-2.5 py-1 bg-orange-500 text-white text-xs font-semibold rounded-md">💸 Deduct</button>
                       <button onClick={() => openEdit(u.username)}
                         className="px-2.5 py-1 text-xs font-semibold text-blue-600 border border-blue-500 rounded-md hover:bg-blue-50">✏️</button>
                       {u.username !== 'admin' && (
@@ -245,6 +276,44 @@ export default function AdminTab() {
         <ModalActions>
           <Btn onClick={() => setTopupModal(null)} className="border-[1.5px] border-blue-600 text-blue-600 hover:bg-blue-50">Cancel</Btn>
           <Btn onClick={doTopup} className="bg-green-600 hover:bg-green-700 text-white">✅ Top Up</Btn>
+        </ModalActions>
+      </Modal>
+
+      {/* Deduct modal */}
+      <Modal open={!!deductModal} onClose={() => setDeductModal(null)} title="💸 Deduct User Balance">
+        {deductMsg && <Alert type={deductMsg.type}>{deductMsg.text}</Alert>}
+        <div className="mb-4 p-3 bg-orange-50 border border-orange-100 rounded-lg text-sm">
+          Account: <strong>{deductModal}</strong><br />
+          Current balance: <strong className="text-orange-600">${(deductUser?.balance || 0).toFixed(2)}</strong>
+        </div>
+        <Field label="Amount to deduct ($) *">
+          <input className={inputCls} type="number" step="0.01" min="0.01" value={deductAmount}
+            onChange={e => setDeductAmount(e.target.value)} />
+        </Field>
+        <Field label="Reason / Note">
+          <input className={inputCls} placeholder="e.g. Service fee, adjustment..." value={deductNote}
+            onChange={e => setDeductNote(e.target.value)} />
+        </Field>
+        {deductUser?.topup_history?.length ? (
+          <div className="mt-2">
+            <div className="text-xs font-bold text-gray-400 mb-1.5">📋 Recent history:</div>
+            <div className="max-h-36 overflow-y-auto border border-gray-100 rounded-lg p-2 space-y-1.5">
+              {deductUser.topup_history.slice(0, 15).map((h, i) => (
+                <div key={i} className={`flex justify-between text-xs gap-2 ${h.amount < 0 ? 'bg-red-50 p-1 rounded' : ''}`}>
+                  <span className="text-gray-400">{h.date}</span>
+                  <span className={`font-bold ${h.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {h.amount > 0 ? '+' : ''}{h.amount.toFixed(2)}
+                  </span>
+                  <span className="text-gray-500">→ ${h.after.toFixed(2)}</span>
+                  {h.note && <span className="text-gray-300 italic truncate max-w-[100px]">{h.note}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        <ModalActions>
+          <Btn onClick={() => setDeductModal(null)} className="border-[1.5px] border-slate-400 text-slate-600 hover:bg-slate-50">Cancel</Btn>
+          <Btn onClick={doDeduct} className="bg-orange-500 hover:bg-orange-600 text-white">💸 Confirm Deduct</Btn>
         </ModalActions>
       </Modal>
     </Card>
