@@ -10,7 +10,7 @@ export async function PUT(req: Request) {
 
   try {
     const payload = await req.json(); // { usps_ground: { prices: [1,2,3], is_active: true } ... }
-    
+
     if (typeof payload !== 'object' || payload === null) {
       return NextResponse.json({ success: false, message: 'Invalid data' }, { status: 400 });
     }
@@ -35,7 +35,7 @@ export async function PUT(req: Request) {
       }
 
       await dbClient.query('COMMIT');
-      return NextResponse.json({ success: true, message: 'Bảng giá đã được cập nhật' });
+      return NextResponse.json({ success: true, message: 'Pricing list updated' });
     } catch (txError) {
       await dbClient.query('ROLLBACK');
       throw txError;

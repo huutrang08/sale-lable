@@ -27,11 +27,11 @@ export default function PricingTab() {
       const json = await res.json();
       if (json.success && json.data) {
         setServices(json.data);
-        
+
         const init: PricingPayload = {};
         json.data.forEach((s: any) => {
           init[s.id] = {
-            prices: s.prices || [0,0,0,0,0],
+            prices: s.prices || [0, 0, 0, 0, 0],
             is_active: s.is_active === true,
             time: s.time || ''
           };
@@ -47,7 +47,7 @@ export default function PricingTab() {
 
   function setPrice(id: string, idx: number, val: string) {
     setPayload(prev => {
-      const current = prev[id] || { prices: [0,0,0,0,0], is_active: false, time: '' };
+      const current = prev[id] || { prices: [0, 0, 0, 0, 0], is_active: false, time: '' };
       const newPrices = [...current.prices];
       newPrices[idx] = parseFloat(val) || 0;
       return {
@@ -62,7 +62,7 @@ export default function PricingTab() {
 
   function toggleActive(id: string) {
     setPayload(prev => {
-      const current = prev[id] || { prices: [0,0,0,0,0], is_active: false, time: '' };
+      const current = prev[id] || { prices: [0, 0, 0, 0, 0], is_active: false, time: '' };
       return {
         ...prev,
         [id]: {
@@ -75,7 +75,7 @@ export default function PricingTab() {
 
   function setTime(id: string, val: string) {
     setPayload(prev => {
-      const current = prev[id] || { prices: [0,0,0,0,0], is_active: false, time: '' };
+      const current = prev[id] || { prices: [0, 0, 0, 0, 0], is_active: false, time: '' };
       return {
         ...prev,
         [id]: { ...current, time: val }
@@ -99,7 +99,7 @@ export default function PricingTab() {
           const freshRes = await fetch('/api/services');
           const freshJson = await freshRes.json();
           if (freshJson.success) setGlobalServices(freshJson.data);
-        } catch(e) {}
+        } catch (e) { }
       } else {
         setMsg({ text: '❌ Error: ' + data.message, type: 'error' });
       }
@@ -170,15 +170,15 @@ export default function PricingTab() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {services.map((s) => {
-                const state = payload[s.id] || { prices: [0,0,0,0,0], is_active: false, time: '' };
+                const state = payload[s.id] || { prices: [0, 0, 0, 0, 0], is_active: false, time: '' };
                 const isActive = state.is_active;
-                
+
                 let origPrices = '';
                 try {
                   if (s.provider_prices && s.provider_prices.length > 0) {
                     origPrices = s.provider_prices.map((p: any) => `${p.max_weight || ''}: ${p.price || ''}`).join(', ');
                   }
-                } catch(e) {}
+                } catch (e) { }
 
                 return (
                   <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${!isActive ? 'opacity-50 grayscale bg-slate-50/50' : ''}`}>
@@ -190,14 +190,14 @@ export default function PricingTab() {
                     <td className="px-4 py-3">
                       <div className="font-bold text-slate-700">{s.name}</div>
                       <input type="text"
-                         value={state.time} 
-                         onChange={e => setTime(s.id, e.target.value)} 
-                         placeholder="VD: 3-5 days" 
-                         className="mt-1 w-full max-w-[160px] px-2 py-1 border border-slate-200 rounded text-xs text-slate-600 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                        value={state.time}
+                        onChange={e => setTime(s.id, e.target.value)}
+                        placeholder="e.g. 3-5 days"
+                        className="mt-1 w-full max-w-[160px] px-2 py-1 border border-slate-200 rounded text-xs text-slate-600 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                       />
                     </td>
                     <td className="px-4 py-3 text-slate-500 text-xs">{s.max_weight}</td>
-                    
+
                     {WEIGHT_RANGES.map((_, i) => (
                       <td key={i} className="px-4 py-3 text-center">
                         <input type="number" min="0" step="0.01"
@@ -206,7 +206,7 @@ export default function PricingTab() {
                           className="w-20 px-2 py-1.5 border border-slate-200 rounded-lg text-sm text-center font-bold text-blue-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
                       </td>
                     ))}
-                    
+
                     <td className="px-4 py-3 text-right">
                       <div className="text-[10px] text-slate-400 leading-tight max-w-[150px] ml-auto overflow-hidden text-ellipsis whitespace-nowrap" title={origPrices}>
                         {origPrices || 'N/A'}

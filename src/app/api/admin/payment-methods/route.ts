@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
   const { name, address, qr_base64 } = await req.json();
   if (!name?.trim() || !address?.trim())
-    return NextResponse.json({ success: false, message: 'Tên và địa chỉ không được trống' }, { status: 400 });
+    return NextResponse.json({ success: false, message: 'Name and address cannot be empty' }, { status: 400 });
 
   try {
     const res = await query(
@@ -46,7 +46,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
   const { id, name, address, qr_base64, is_active } = await req.json();
-  if (!id) return NextResponse.json({ success: false, message: 'Thiếu id' }, { status: 400 });
+  if (!id) return NextResponse.json({ success: false, message: 'Missing ID' }, { status: 400 });
 
   try {
     await query(
@@ -69,7 +69,7 @@ export async function DELETE(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-  if (!id) return NextResponse.json({ success: false, message: 'Thiếu id' }, { status: 400 });
+  if (!id) return NextResponse.json({ success: false, message: 'Missing ID' }, { status: 400 });
 
   try {
     await query('DELETE FROM sales.payment_methods WHERE id = $1', [id]);

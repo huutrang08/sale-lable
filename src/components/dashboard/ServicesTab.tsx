@@ -19,15 +19,15 @@ export default function ServicesTab() {
   return (
     <Card title="🚀 List of services & Price list">
       {!services.length ? (
-        <div className="text-center py-8 text-gray-300"><Spinner /> Đang tải...</div>
+        <div className="text-center py-8 text-gray-300"><Spinner /> Loading...</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-gray-50 text-gray-500 text-left">
                 <th className="px-3 py-2.5 font-bold border-b-2 border-gray-200">ID</th>
-                <th className="px-3 py-2.5 font-bold border-b-2 border-gray-200">Tên dịch vụ</th>
-                <th className="px-3 py-2.5 font-bold border-b-2 border-gray-200">Thời gian</th>
+                <th className="px-3 py-2.5 font-bold border-b-2 border-gray-200">Service Name</th>
+                <th className="px-3 py-2.5 font-bold border-b-2 border-gray-200">Transit Time</th>
                 {WEIGHT_RANGES.map(r => (
                   <th key={r.id} className="px-3 py-2.5 font-bold border-b-2 border-gray-200 text-center">{r.label}</th>
                 ))}

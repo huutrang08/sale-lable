@@ -23,6 +23,6 @@ export async function GET() {
     return NextResponse.json({ success: true, data: orders });
   } catch (error) {
     console.error('API /orders Error:', error);
-    return NextResponse.json({ success: false, message: 'Lỗi tải đơn hàng' }, { status: 500 });
+    return NextResponse.json({ success: false, message: 'Error loading orders' }, { status: 500 });
   }
 }

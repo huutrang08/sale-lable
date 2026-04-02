@@ -64,8 +64,15 @@ export function Spinner({ size = 18 }: { size?: number }) {
 export function Toast() {
   const { toast } = useApp();
   if (!toast) return null;
+
+  const isSuccess = toast.includes('✅');
+  const isError = toast.includes('❌') || toast.includes('⚠️');
+
   return (
-    <div className="fixed bottom-8 right-8 z-[99999] bg-slate-800/95 backdrop-blur text-white px-6 py-3.5 rounded-2xl shadow-2xl shadow-slate-900/20 text-sm font-medium animate-slide-up flex items-center gap-3 border border-slate-700/50">
+    <div className={`fixed top-8 right-8 z-[99999] px-6 py-3.5 rounded-2xl shadow-2xl text-sm font-bold animate-slide-down flex items-center gap-3 border backdrop-blur-md transition-all
+      ${isSuccess ? 'bg-emerald-500/90 text-white border-emerald-400/50 shadow-emerald-500/20' :
+        isError ? 'bg-rose-500/90 text-white border-rose-400/50 shadow-rose-500/20' :
+          'bg-slate-800/95 text-white border-slate-700/50 shadow-slate-900/20'}`}>
       {toast}
     </div>
   );

@@ -97,7 +97,7 @@ export default function ApiKeysTab() {
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-50 text-gray-500 text-left">
-              {['Name','API Key','Assigned To','Status','Created At','Actions'].map(h => (
+              {['Name', 'API Key', 'Assigned To', 'Status', 'Created At', 'Actions'].map(h => (
                 <th key={h} className="px-3 py-2.5 font-bold border-b-2 border-gray-200 whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -138,10 +138,10 @@ export default function ApiKeysTab() {
       </div>
 
       <Modal open={modal.open} onClose={() => setModal({ open: false, editId: null })}
-        title={modal.editId ? '✏️ Sửa API Key' : '➕ Thêm API Key'}>
+        title={modal.editId ? '✏️ Edit API Key' : '➕ Add API Key'}>
         {msg && <Alert type={msg.type}>{msg.text}</Alert>}
         <Field label="Name / Label *">
-          <input className={inputCls} placeholder="VD: Key tài khoản A" value={form.label}
+          <input className={inputCls} placeholder="e.g. Account A Key" value={form.label}
             onChange={e => setForm(p => ({ ...p, label: e.target.value }))} />
         </Field>
         <Field label="API Key *">
