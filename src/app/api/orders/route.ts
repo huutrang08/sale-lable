@@ -9,15 +9,15 @@ export async function GET() {
   }
 
   try {
-    const res = await query(
-      'SELECT * FROM orders WHERE username = $1 ORDER BY created_at DESC',
-      [session.username]
-    );
+    const isAdmin = session.role === 'admin';
 
-    // Format dates back using JS to display
+    const res = isAdmin
+      ? await query('SELECT * FROM orders ORDER BY created_at DESC', [])
+      : await query('SELECT * FROM orders WHERE username = $1 ORDER BY created_at DESC', [session.username]);
+
     const orders = res.rows.map(o => ({
       ...o,
-      created_at: new Date(o.created_at).toLocaleString('en-US')
+      created_at: new Date(o.created_at).toLocaleString('en-US'),
     }));
 
     return NextResponse.json({ success: true, data: orders });

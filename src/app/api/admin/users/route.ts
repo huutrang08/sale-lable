@@ -64,6 +64,7 @@ export async function POST(req: Request) {
   try {
     const { username, name, email, pass, role, balance, apiKeyId } = await req.json();
     if (!username || !name || !pass) return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
+    if (/\s/.test(username)) return NextResponse.json({ success: false, message: 'Username must not contain spaces' }, { status: 400 });
 
     const exist = await query('SELECT username FROM users WHERE username = $1', [username]);
     if (exist.rows.length > 0) return NextResponse.json({ success: false, message: 'Username existed' }, { status: 400 });

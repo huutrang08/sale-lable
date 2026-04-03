@@ -14,6 +14,7 @@ function fmt(v: unknown): string {
 
 export default function OrdersTab() {
   const { currentUser, showToast } = useApp();
+  const isAdmin = (currentUser as any)?.role === 'admin';
   const [orders, setOrders] = useState<Order[]>([]);
   const [search, setSearch] = useState('');
   const [detail, setDetail] = useState<Order | null>(null);
@@ -44,7 +45,8 @@ export default function OrdersTab() {
   const filtered = orders.filter(o => !search ||
     o.tracking_id?.toLowerCase().includes(search.toLowerCase()) ||
     o.to_name?.toLowerCase().includes(search.toLowerCase()) ||
-    o.from_name?.toLowerCase().includes(search.toLowerCase())
+    o.from_name?.toLowerCase().includes(search.toLowerCase()) ||
+    (o as any).username?.toLowerCase().includes(search.toLowerCase())
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -200,16 +202,17 @@ export default function OrdersTab() {
               <th className="px-5 py-3.5">Tracking & Date</th>
               <th className="px-5 py-3.5">Route</th>
               <th className="px-5 py-3.5 hidden md:table-cell">Service</th>
+              {isAdmin && <th className="px-5 py-3.5 hidden lg:table-cell">Created by</th>}
               <th className="px-5 py-3.5 text-right">Cost</th>
               <th className="px-5 py-3.5 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
             {loading && (
-              <tr><td colSpan={6} className="py-14 text-center text-slate-400"><Spinner size={24} /></td></tr>
+              <tr><td colSpan={isAdmin ? 7 : 6} className="py-14 text-center text-slate-400"><Spinner size={24} /></td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="py-14 text-center text-slate-400 font-medium">No orders yet.</td></tr>
+              <tr><td colSpan={isAdmin ? 7 : 6} className="py-14 text-center text-slate-400 font-medium">No orders yet.</td></tr>
             )}
             {!loading && paginated.map((o, i) => (
               <tr key={o.id} className="hover:bg-slate-50/80 transition-colors group align-middle">
@@ -250,6 +253,15 @@ export default function OrdersTab() {
                   <div className="text-xs font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md inline-block max-w-[160px] truncate">{o.service || '—'}</div>
                   <div className="text-xs text-slate-500 mt-1">⚖️ {Number(o.weight || 0).toFixed(1)} lbs</div>
                 </td>
+
+                {/* Created by (admin only) */}
+                {isAdmin && (
+                  <td className="px-5 py-4 hidden lg:table-cell">
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-md">
+                      👤 {(o as any).username || '—'}
+                    </span>
+                  </td>
+                )}
 
                 {/* Price */}
                 <td className="px-5 py-4 text-right">

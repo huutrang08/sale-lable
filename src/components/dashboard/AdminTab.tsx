@@ -55,6 +55,7 @@ export default function AdminTab() {
   async function saveUser() {
     const { username, name, email, pass, balance, role, apiKeyId } = umData;
     if (!username || !name) return setUmMsg({ text: '⚠️ Please fill in all required fields', type: 'error' });
+    if (/\s/.test(username)) return setUmMsg({ text: '⚠️ Username must not contain spaces', type: 'error' });
     
     if (!userModal.edit && !pass) {
       return setUmMsg({ text: '⚠️ Please enter a password', type: 'error' });
