@@ -248,12 +248,26 @@ export default function CreateTab() {
     return finalPrice;
   }
 
+  function validationError(text: string) {
+    setMsg({ text, type: 'error' });
+    showToast(text);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function createOrder() {
     setMsg(null);
-    if (!selectedService) return setMsg({ text: '⚠️ Please select a shipping service', type: 'error' });
+    if (!selectedService) return validationError('⚠️ Please select a shipping service');
     const required = ['fromName', 'fromAddress', 'fromCity', 'fromState', 'fromZip', 'toName', 'toAddress', 'toCity', 'toState', 'toZip', 'weight'];
     for (const f of required) {
-      if (!form[f]?.trim()) return setMsg({ text: `⚠️ Please enter: ${f}`, type: 'error' });
+      if (!form[f]?.trim()) return validationError(`⚠️ Please enter: ${f}`);
+    }
+
+    const dims: [string, string][] = [['length', 'Length'], ['width', 'Width'], ['height', 'Height']];
+    for (const [key, label] of dims) {
+      const val = form[key]?.trim();
+      if (val !== '' && parseFloat(val) <= 0) {
+        return validationError(`⚠️ ${label} must be > 0`);
+      }
     }
 
     setCreating(true);
@@ -487,7 +501,7 @@ export default function CreateTab() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           {[['weight', 'Weight (lbs) *'], ['length', 'Length (in)'], ['width', 'Width (in)'], ['height', 'Height (in)']].map(([k, l]) => (
             <Field key={k} label={l}>
-              <input className={inputCls} type="number" step="0.1" min="0.1" value={form[k]} onChange={setF(k)} placeholder="0.0" />
+              <input className={inputCls} type="number" step="0.1" min={k === 'weight' ? '0.1' : '0'} value={form[k]} onChange={setF(k)} placeholder="0.0" />
             </Field>
           ))}
         </div>
