@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Modal, Btn, ModalActions, Field, inputCls, Alert } from '@/components/ui';
+import NowPaymentsTopup from './NowPaymentsTopup';
 
 interface PaymentMethod {
   id: number;
@@ -167,6 +168,10 @@ export default function PaymentTab({ isAdmin = false }: { isAdmin?: boolean }) {
                 Transfer using the details below. After transferring, contact admin to credit your balance.
               </p>
             </div>
+          </div>
+
+          <div className="mb-8">
+            <NowPaymentsTopup />
           </div>
 
           {loading ? (

@@ -16,21 +16,38 @@ export default function OrdersTab() {
   const { currentUser, showToast } = useApp();
   const isAdmin = (currentUser as any)?.role === 'admin';
   const [orders, setOrders] = useState<Order[]>([]);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [detail, setDetail] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
-  useEffect(() => { load(); }, [currentUser]);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  useEffect(() => { load(); }, [currentUser, page, debouncedSearch]);
 
   async function load() {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/orders');
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page, pageSize: PAGE_SIZE, search: debouncedSearch })
+      });
       const json = await res.json();
-      if (json.success) setOrders(json.data);
+      if (json.success) {
+        setOrders(json.data);
+        setTotal(json.total || 0);
+      }
     } catch {
       showToast('Error loading orders');
     } finally {
@@ -42,18 +59,9 @@ export default function OrdersTab() {
     navigator.clipboard.writeText(text).then(() => showToast('📋 Copied!'));
   }
 
-  const filtered = orders.filter(o => !search ||
-    o.tracking_id?.toLowerCase().includes(search.toLowerCase()) ||
-    o.to_name?.toLowerCase().includes(search.toLowerCase()) ||
-    o.from_name?.toLowerCase().includes(search.toLowerCase()) ||
-    (o as any).username?.toLowerCase().includes(search.toLowerCase())
-  );
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  // Reset to page 1 when search changes
-  function handleSearch(v: string) { setSearch(v); setPage(1); }
+  function handleSearch(v: string) { setSearch(v); }
 
   function StatusBadge({ id }: { id: string }): JSX.Element {
     if (id === 'FAILED') return <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-md text-xs font-bold">❌ FAILED</span>;
@@ -211,10 +219,10 @@ export default function OrdersTab() {
             {loading && (
               <tr><td colSpan={isAdmin ? 7 : 6} className="py-14 text-center text-slate-400"><Spinner size={24} /></td></tr>
             )}
-            {!loading && filtered.length === 0 && (
+            {!loading && orders.length === 0 && (
               <tr><td colSpan={isAdmin ? 7 : 6} className="py-14 text-center text-slate-400 font-medium">No orders yet.</td></tr>
             )}
-            {!loading && paginated.map((o, i) => (
+            {!loading && orders.map((o, i) => (
               <tr key={o.id} className="hover:bg-slate-50/80 transition-colors group align-middle">
                 {/* # */}
                 <td className="px-5 py-4 text-slate-400 text-xs hidden sm:table-cell">{(page - 1) * PAGE_SIZE + i + 1}</td>
@@ -293,7 +301,7 @@ export default function OrdersTab() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100 bg-slate-50/50">
           <span className="text-xs text-slate-500 font-medium">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} orders
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total} orders
           </span>
           <div className="flex items-center gap-1">
             <button
