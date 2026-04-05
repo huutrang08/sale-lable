@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db-server';
 import { createSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data: userPayload });
   } catch (error: any) {
     console.error('Login error:', error);
+    await logException(request, error);
     return NextResponse.json({ success: false, message: 'System error' }, { status: 500 });
   }
 }

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { query } from '@/lib/db-server';
+import { logException } from '@/lib/logger';
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getSession();
   
   if (!session) {
@@ -21,6 +22,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: user });
   } catch (error) {
+    await logException(request, error);
     return NextResponse.json({ success: false, message: 'Database error' }, { status: 500 });
   }
 }

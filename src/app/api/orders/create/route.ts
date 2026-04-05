@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool, { query } from '@/lib/db-server';
 import { getSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -210,6 +211,7 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error('API Orders Create Error:', err);
+    await logException(request, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   } finally {
     dbClient.release();

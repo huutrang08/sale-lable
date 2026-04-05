@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool, { query } from '@/lib/db-server';
 import { getSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -10,8 +11,8 @@ export async function POST(request: Request) {
     const payload = await request.json();
     const amount = parseFloat(payload.amount);
     
-    if (isNaN(amount) || amount <= 0) {
-      return NextResponse.json({ success: false, message: 'Invalid top-up amount' }, { status: 400 });
+    if (isNaN(amount) || amount < 5) {
+      return NextResponse.json({ success: false, message: 'Minimum top-up amount is 5 USD' }, { status: 400 });
     }
 
     const settingsRes = await query("SELECT key, value FROM sales.settings WHERE key IN ('nowpayments_api_key')");
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error('Create NowPayment Error:', err);
+    await logException(request, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }

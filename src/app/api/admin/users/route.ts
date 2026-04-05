@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db-server';
 import { getSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 async function checkAdmin() {
   const session = await getSession();
@@ -10,7 +11,7 @@ async function checkAdmin() {
   return session;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const admin = await checkAdmin();
   if (!admin) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
@@ -53,6 +54,7 @@ export async function GET() {
     return NextResponse.json({ success: true, data: fullUsers });
   } catch (err: any) {
     console.error('API /admin/users GET Error:', err);
+    await logException(request, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
@@ -79,6 +81,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: 'Created successfully' });
   } catch (err: any) {
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
@@ -103,6 +106,7 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ success: true, message: 'Updated successfully' });
   } catch (err: any) {
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
@@ -120,6 +124,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true, message: 'Deleted successfully' });
   } catch (err: any) {
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }

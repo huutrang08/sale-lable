@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db-server';
 import { getSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 export async function PUT(req: Request) {
   const session = await getSession();
@@ -44,6 +45,7 @@ export async function PUT(req: Request) {
     }
   } catch (err: any) {
     console.error('API /admin/pricing PUT Error:', err);
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }

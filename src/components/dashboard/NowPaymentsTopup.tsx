@@ -16,8 +16,8 @@ export default function NowPaymentsTopup() {
 
   async function handleCreate() {
     const val = parseFloat(amount);
-    if (isNaN(val) || val <= 0) {
-      return setMsg({ text: '⚠️ Please enter a valid amount USD', type: 'error' });
+    if (isNaN(val) || val < 5) {
+      return setMsg({ text: '⚠️ Minimum top-up amount is 5 USD', type: 'error' });
     }
     
     setLoading(true);

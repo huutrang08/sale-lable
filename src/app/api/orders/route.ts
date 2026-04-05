@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db-server';
 import { getSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data: orders, total });
   } catch (error) {
     console.error('API /orders Error:', error);
+    await logException(request, error);
     return NextResponse.json({ success: false, message: 'Error loading orders' }, { status: 500 });
   }
 }

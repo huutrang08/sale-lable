@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db-server';
 import { getSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({ success: true, data: settingsMap });
   } catch (err: any) {
+    await logException(request, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
@@ -42,6 +44,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('API Settings Update Error:', err);
+    await logException(request, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool, { query } from '@/lib/db-server';
+import { logException } from '@/lib/logger';
 
 export async function POST(request: Request) {
   try {
@@ -107,6 +108,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, status: actualStatus });
   } catch (err: any) {
     console.error('NOWPayments Webhook Error:', err);
+    await logException(request, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }

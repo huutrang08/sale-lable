@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import pool from '@/lib/db-server';
+import { logException } from '@/lib/logger';
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -62,6 +63,7 @@ export async function POST(req: Request) {
     }
   } catch (err: any) {
     console.error('API /admin/users/deduct POST Error:', err);
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }

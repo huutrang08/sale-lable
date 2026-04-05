@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db-server';
 import { getSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 export async function POST(req: Request) {
   const cronToken = req.headers.get('x-cron-auth');
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     await dbClient.query('ROLLBACK');
     console.error('API /admin/sync-services POST Error:', err);
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   } finally {
     dbClient.release();

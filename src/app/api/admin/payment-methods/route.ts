@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db-server';
 import { getSession } from '@/lib/session';
+import { logException } from '@/lib/logger';
 
 // GET — anyone logged in can read (for topup page display)
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
 
@@ -14,6 +15,7 @@ export async function GET() {
     );
     return NextResponse.json({ success: true, data: res.rows });
   } catch (err: any) {
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
@@ -35,6 +37,7 @@ export async function POST(req: Request) {
     );
     return NextResponse.json({ success: true, data: res.rows[0] });
   } catch (err: any) {
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
@@ -57,6 +60,7 @@ export async function PUT(req: Request) {
     );
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
@@ -75,6 +79,7 @@ export async function DELETE(req: Request) {
     await query('DELETE FROM sales.payment_methods WHERE id = $1', [id]);
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    await logException(req, err);
     return NextResponse.json({ success: false, message: err.message }, { status: 500 });
   }
 }
