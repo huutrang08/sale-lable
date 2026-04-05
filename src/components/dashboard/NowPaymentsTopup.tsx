@@ -3,13 +3,17 @@
 import React, { useState } from 'react';
 import { Card, Field, inputCls, Btn, Alert } from '@/components/ui';
 
+export const AVAILABLE_COINS = ["ada", "algo", "ark", "ava", "bat", "bcd", "bch", "bnb", "bnbmainnet", "btc", "btg", "busd", "cro", "dai", "dash", "dgb", "doge", "eth", "fun", "gas", "grs", "gt", "ht", "kmd", "link", "lsk", "ltc", "nano", "neo", "okb", "ont", "pax", "qtum", "rep", "rvn", "stpt", "sxp", "trx", "tusd", "uni", "usdc", "usdt", "usdterc20", "usdttrc20", "vet", "wabi", "waves", "xem", "xlm", "xmr", "xrp", "xtz", "xvg", "xzc", "zec", "zen", "zil"];
+
 export default function NowPaymentsTopup() {
   const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('usdttrc20');
   const [loading, setLoading] = useState(false);
   const [invoice, setInvoice] = useState<{
     pay_address: string;
     pay_amount: number;
     amount_usd: number;
+    pay_currency: string;
   } | null>(null);
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -28,7 +32,7 @@ export default function NowPaymentsTopup() {
       const res = await fetch('/api/user/nowpayments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: val })
+        body: JSON.stringify({ amount: val, currency })
       });
       const json = await res.json();
       
@@ -53,11 +57,11 @@ export default function NowPaymentsTopup() {
   }
 
   return (
-    <Card title="⚡ Automated Crypto Top-up (USDT TRC20)">
+    <Card title="⚡ Automated Crypto Top-up">
       {!invoice ? (
         <div className="space-y-4">
           <p className="text-sm text-slate-500">
-            The system automatically converts USD to USDT and updates your balance after a successful payment (Takes about 1-3 minutes via TRON network).
+            The system automatically converts USD to your selected cryptocurrency and updates your balance after a successful payment (Takes varying time depending on network).
           </p>
           <Field label="Top-up Amount (USD)">
             <input 
@@ -66,11 +70,22 @@ export default function NowPaymentsTopup() {
               placeholder="Example: 100" 
               value={amount} 
               onChange={e => setAmount(e.target.value)} 
-              min="1"
+              min="5"
             />
           </Field>
+          <Field label="Select Cryptocurrency">
+            <select 
+              className={inputCls} 
+              value={currency} 
+              onChange={e => setCurrency(e.target.value)}
+            >
+              {AVAILABLE_COINS.map(c => (
+                <option key={c} value={c}>{c.toUpperCase()}</option>
+              ))}
+            </select>
+          </Field>
           <Btn onClick={handleCreate} disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 mt-2">
-            {loading ? '⏳ Creating invoice...' : '🚀 Create USDT Invoice'}
+            {loading ? '⏳ Creating invoice...' : `🚀 Create ${currency.toUpperCase()} Invoice`}
           </Btn>
           {msg && <Alert type={msg.type}>{msg.text}</Alert>}
         </div>
@@ -78,7 +93,7 @@ export default function NowPaymentsTopup() {
         <div className="flex flex-col items-center space-y-5 py-4">
           <div className="text-center">
             <h3 className="text-lg font-bold text-slate-800 mb-1">Please Pay</h3>
-            <p className="text-sm text-slate-500">Send the exact amount of USDT TRC20 to the address below.</p>
+            <p className="text-sm text-slate-500">Send the exact amount of {invoice.pay_currency.toUpperCase()} to the address below.</p>
           </div>
           
           <div className="bg-slate-50 p-4 border border-slate-200 rounded-2xl">
@@ -91,9 +106,9 @@ export default function NowPaymentsTopup() {
 
           <div className="w-full space-y-3">
             <div>
-                <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Amount to Send (USDT TRC20)</div>
+                <div className="text-xs font-black uppercase tracking-widest text-slate-400 mb-1">Amount to Send ({invoice.pay_currency.toUpperCase()})</div>
                 <div className="font-mono text-lg font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-center">
-                    {invoice.pay_amount} USDT
+                    {invoice.pay_amount} {invoice.pay_currency.toUpperCase()}
                 </div>
             </div>
             

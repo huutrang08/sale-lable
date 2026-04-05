@@ -10,6 +10,7 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json();
     const amount = parseFloat(payload.amount);
+    const currency = payload.currency || 'usdttrc20';
     
     if (isNaN(amount) || amount < 5) {
       return NextResponse.json({ success: false, message: 'Minimum top-up amount is 5 USD' }, { status: 400 });
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     const body = {
       price_amount: amount,
       price_currency: 'usd',
-      pay_currency: 'usdttrc20',
+      pay_currency: currency,
       order_id: orderId,
       order_description: `Topup for ${session.username}`
     };
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
         'PENDING',
         JSON.stringify(npData),
         JSON.stringify(body),
-        'usdttrc20'
+        currency
       ]
     );
 
