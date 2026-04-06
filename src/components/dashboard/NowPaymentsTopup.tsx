@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Card, Field, inputCls, Btn, Alert } from '@/components/ui';
 
-export const AVAILABLE_COINS = ["btc", "usdc", "usdt", "usdterc20", "usdttrc20"];
+export const AVAILABLE_COINS = ["usdterc20", "usdttrc20"];
 
 export default function NowPaymentsTopup() {
   const [amount, setAmount] = useState('');
@@ -122,8 +122,8 @@ export default function NowPaymentsTopup() {
                   onClick={copyAddress}
                   title="Copy"
                   className={`shrink-0 w-11 h-11 flex items-center justify-center rounded-xl border text-sm font-bold transition-all ${copied
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
-                      : 'bg-indigo-50 border-indigo-100 text-indigo-500 hover:bg-indigo-100'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                    : 'bg-indigo-50 border-indigo-100 text-indigo-500 hover:bg-indigo-100'
                     }`}
                 >
                   {copied ? '✓' : '📋'}
