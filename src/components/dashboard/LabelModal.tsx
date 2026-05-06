@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
+import { useRouter } from 'next/navigation';
 
 interface Props {
   open: boolean;
@@ -12,7 +13,8 @@ interface Props {
 }
 
 export default function LabelModal({ open, onClose, d, price, serviceName }: Props) {
-  const { showToast, setActiveTab } = useApp();
+  const { showToast } = useApp();
+  const router = useRouter();
   const pdf = d.pdf_url as string | undefined || d.pdf as string | undefined;
   const tracking = d.tracking_id as string | undefined;
   const [copied, setCopied] = useState(false);
@@ -166,7 +168,7 @@ export default function LabelModal({ open, onClose, d, price, serviceName }: Pro
 
             {/* Footer action */}
             <button
-              onClick={() => { handleClose(); setActiveTab('orders'); }}
+              onClick={() => { handleClose(); router.push('/orders'); }}
               className="w-full py-3 text-slate-500 hover:text-indigo-600 text-sm font-semibold transition-colors"
             >
               📋 View in order history →
