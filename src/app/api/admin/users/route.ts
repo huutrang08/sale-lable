@@ -16,33 +16,44 @@ export async function GET(request: Request) {
   if (!admin) return NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 });
 
   try {
-    const userRes = await query('SELECT username, name, email, role, balance, api_key_id FROM users');
+    const url = new URL(request.url);
+    const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+    const pageSize = Math.max(1, parseInt(url.searchParams.get('pageSize') || '15', 10));
+    const offset = (page - 1) * pageSize;
+
+    const countRes = await query('SELECT COUNT(*) as total FROM users');
+    const total = parseInt(countRes.rows[0].total, 10);
+
+    const userRes = await query('SELECT username, name, email, role, balance, api_key_id FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2', [pageSize, offset]);
     const users = userRes.rows;
 
-    const orderRes = await query('SELECT username, COUNT(*) as c FROM orders GROUP BY username');
+    const usernames = users.map(u => u.username);
     const orderMap: Record<string, number> = {};
-    orderRes.rows.forEach(r => { orderMap[r.username] = parseInt(r.c, 10); });
-
-    const topupRes = await query(`
-      SELECT * FROM (
-        SELECT id, username, amount, after_balance as after, note, by_user as by,
-               created_at as date,
-               ROW_NUMBER() OVER(PARTITION BY username ORDER BY created_at DESC) as rn
-        FROM topup_history
-      ) T WHERE rn <= 10
-    `);
-    
-    // Group topups
     const topupMap: Record<string, any[]> = {};
-    topupRes.rows.forEach(r => {
-      if (!topupMap[r.username]) topupMap[r.username] = [];
-      topupMap[r.username].push({
-        ...r,
-        amount: parseFloat(r.amount),
-        after: parseFloat(r.after),
-        date: new Date(r.date).toLocaleString('vi-VN')
+
+    if (usernames.length > 0) {
+      const orderRes = await query('SELECT username, COUNT(*) as c FROM orders WHERE username = ANY($1) GROUP BY username', [usernames]);
+      orderRes.rows.forEach(r => { orderMap[r.username] = parseInt(r.c, 10); });
+
+      const topupRes = await query(`
+        SELECT * FROM (
+          SELECT id, username, amount, after_balance as after, note, by_user as by,
+                 created_at as date,
+                 ROW_NUMBER() OVER(PARTITION BY username ORDER BY created_at DESC) as rn
+          FROM topup_history WHERE username = ANY($1)
+        ) T WHERE rn <= 10
+      `, [usernames]);
+      
+      topupRes.rows.forEach(r => {
+        if (!topupMap[r.username]) topupMap[r.username] = [];
+        topupMap[r.username].push({
+          ...r,
+          amount: parseFloat(r.amount),
+          after: parseFloat(r.after),
+          date: new Date(r.date).toLocaleString('vi-VN')
+        });
       });
-    });
+    }
 
     const fullUsers = users.map(u => ({
       ...u,
@@ -51,7 +62,7 @@ export async function GET(request: Request) {
       topup_history: topupMap[u.username] || []
     }));
 
-    return NextResponse.json({ success: true, data: fullUsers });
+    return NextResponse.json({ success: true, data: fullUsers, total });
   } catch (err: any) {
     console.error('API /admin/users GET Error:', err);
     await logException(request, err);

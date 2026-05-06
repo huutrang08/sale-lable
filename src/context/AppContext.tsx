@@ -7,13 +7,11 @@ interface AppContextType {
   currentUser: User | null;
   services: ShipService[];
   selectedService: ShipService | null;
-  activeTab: string;
   toast: string;
   loadingAuth: boolean;
   setCurrentUser: (u: User | null) => void;
   setServices: (s: ShipService[]) => void;
   setSelectedService: (s: ShipService | null) => void;
-  setActiveTab: (t: string) => void;
   showToast: (msg: string, duration?: number) => void;
   updateBalance: () => Promise<void>;
   logout: () => Promise<void>;
@@ -25,7 +23,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUserState] = useState<User | null>(null);
   const [services, setServices] = useState<ShipService[]>([]);
   const [selectedService, setSelectedService] = useState<ShipService | null>(null);
-  const [activeTab, setActiveTab] = useState('create');
   const [toast, setToast] = useState('');
   const [loadingAuth, setLoadingAuth] = useState(true);
 
@@ -64,13 +61,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentUserState(null);
     setServices([]);
     setSelectedService(null);
-    setActiveTab('create');
+    window.location.href = '/login';
   };
 
   return (
     <AppContext.Provider value={{
-      currentUser, services, selectedService, activeTab, toast, loadingAuth,
-      setCurrentUser: setCurrentUserState, setServices, setSelectedService, setActiveTab,
+      currentUser, services, selectedService, toast, loadingAuth,
+      setCurrentUser: setCurrentUserState, setServices, setSelectedService,
       showToast, updateBalance, logout,
     }}>
       {children}

@@ -362,10 +362,7 @@ export default function CreateTab() {
           <div className="text-4xl sm:text-5xl font-extrabold mt-1 tracking-tight">${(Number(currentUser?.balance) || 0).toFixed(2)}</div>
           <div className="flex items-center gap-3 mt-4 flex-wrap">
             <div className="text-sm font-medium text-blue-200 flex items-center gap-2">
-              <span className="opacity-70">API Key:</span>
-              <code className="px-2 py-1 rounded bg-slate-900/40 border border-slate-700/50 font-mono text-xs">
-                {(currentUser as any)?.api_key_id ? 'API Key (' + String((currentUser as any).api_key_id).substring(0, 4) + '...)' : 'Master Key'}
-              </code>
+              <span className="opacity-90">✨ Get an extra 10% discount on orders over $100!</span>
             </div>
           </div>
         </div>

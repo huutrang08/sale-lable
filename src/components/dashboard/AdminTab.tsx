@@ -8,6 +8,9 @@ import type { User } from '@/types';
 export default function AdminTab() {
   const { currentUser, showToast, updateBalance } = useApp();
   const [users, setUsers] = useState<User[]>([]);
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
+  const [total, setTotal] = useState(0);
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [userModal, setUserModal] = useState<{ open: boolean; edit: string | null }>({ open: false, edit: null });
   const [topupModal, setTopupModal] = useState<string | null>(null);
@@ -24,17 +27,18 @@ export default function AdminTab() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await fetch(`/api/admin/users?page=${page}&pageSize=${pageSize}`);
       const json = await res.json();
       if (json.success) {
         setUsers(json.data);
+        setTotal(json.total || 0);
       } else {
         showToast('Failed to load admin data: ' + json.message);
       }
     } catch {
       showToast('Unable to connect to server');
     }
-  }, [showToast]);
+  }, [showToast, page, pageSize]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -158,48 +162,75 @@ export default function AdminTab() {
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-gray-50 text-gray-500 text-left">
-              {['Username','Full Name','Email','Balance','Role','API Key','Orders','Actions'].map(h => (
-                <th key={h} className="px-3 py-2.5 font-bold border-b-2 border-gray-200 whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => {
-              const uAny = u as any;
-              const keyLabel = uAny.api_key_id ? 'API Key (' + uAny.api_key_id.slice(0,4) + '...)' : 'Master Key';
-              const isMaster = keyLabel === 'Master Key';
-              return (
-                <tr key={u.username} className="hover:bg-gray-50/70 border-b border-gray-100">
-                  <td className="px-3 py-2.5 font-bold">{u.username}</td>
-                  <td className="px-3 py-2.5">{u.name}</td>
-                  <td className="px-3 py-2.5 text-gray-400 text-xs">{u.email || '-'}</td>
-                  <td className="px-3 py-2.5 font-bold text-green-600">${(u.balance || 0).toFixed(2)}</td>
-                  <td className="px-3 py-2.5"><Badge variant={u.role === 'admin' ? 'error' : 'success'}>{u.role}</Badge></td>
-                  <td className="px-3 py-2.5"><KeyBadge blue={isMaster}>{keyLabel}</KeyBadge></td>
-                  <td className="px-3 py-2.5">{(u.orders || []).length}</td>
-                  <td className="px-3 py-2.5">
-                    <div className="flex gap-1.5 flex-wrap">
-                      <button onClick={() => { setTopupModal(u.username); setTopupMsg(null); setTopupAmount('10'); setTopupNote(''); }}
-                        className="px-2.5 py-1 bg-green-600 text-white text-xs font-semibold rounded-md">💰 Top Up</button>
-                      <button onClick={() => { setDeductModal(u.username); setDeductMsg(null); setDeductAmount('10'); setDeductNote(''); }}
-                        className="px-2.5 py-1 bg-orange-500 text-white text-xs font-semibold rounded-md">💸 Deduct</button>
-                      <button onClick={() => openEdit(u.username)}
-                        className="px-2.5 py-1 text-xs font-semibold text-blue-600 border border-blue-500 rounded-md hover:bg-blue-50">✏️</button>
-                      {u.username !== 'admin' && (
-                        <button onClick={() => deleteUser(u.username)}
-                          className="px-2.5 py-1 bg-red-600 text-white text-xs font-semibold rounded-md">🗑️</button>
-                      )}
-                    </div>
-                  </td>
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-left">
+                {['Username','Full Name','Email','Balance','Role','Orders','Actions'].map(h => (
+                  <th key={h} className="px-4 py-3.5 font-bold text-slate-500 text-xs uppercase tracking-wider whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {users.map(u => {
+                const uAny = u as any;
+                const keyLabel = uAny.api_key_id ? 'API Key (' + uAny.api_key_id.slice(0,4) + '...)' : 'Master Key';
+                const isMaster = keyLabel === 'Master Key';
+                return (
+                  <tr key={u.username} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 py-3 font-bold text-slate-700">{u.username}</td>
+                    <td className="px-4 py-3 text-slate-600">{u.name}</td>
+                    <td className="px-4 py-3 text-slate-400 text-xs">{u.email || '-'}</td>
+                    <td className="px-4 py-3 font-bold text-emerald-600">${(u.balance || 0).toFixed(2)}</td>
+                    <td className="px-4 py-3"><Badge variant={u.role === 'admin' ? 'error' : 'success'}>{u.role}</Badge></td>
+                    <td className="px-4 py-3 font-medium text-slate-600">{(u.orders || []).length}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={() => { setTopupModal(u.username); setTopupMsg(null); setTopupAmount('10'); setTopupNote(''); }}
+                          className="px-2.5 py-1.5 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 text-xs font-bold rounded-lg transition-colors">💰 Top Up</button>
+                        <button onClick={() => { setDeductModal(u.username); setDeductMsg(null); setDeductAmount('10'); setDeductNote(''); }}
+                          className="px-2.5 py-1.5 bg-orange-100 text-orange-700 hover:bg-orange-200 text-xs font-bold rounded-lg transition-colors">💸 Deduct</button>
+                        <button onClick={() => openEdit(u.username)}
+                          className="px-2.5 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">✏️ Edit</button>
+                        {u.username !== 'admin' && (
+                          <button onClick={() => deleteUser(u.username)}
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-lg transition-colors">🗑️ Del</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-slate-400 font-medium">No users found.</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-200">
+          <div className="text-sm text-slate-500 font-medium">
+            Showing <span className="font-bold text-slate-700">{users.length > 0 ? (page - 1) * pageSize + 1 : 0}</span> to <span className="font-bold text-slate-700">{Math.min(page * pageSize, total)}</span> of <span className="font-bold text-slate-700">{total}</span> users
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors">
+              Previous
+            </button>
+            <button 
+              onClick={() => setPage(p => p + 1)}
+              disabled={page * pageSize >= total}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors">
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* User modal */}

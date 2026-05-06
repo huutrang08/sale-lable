@@ -1,21 +1,15 @@
 'use client';
 
-import React, { lazy, Suspense } from 'react';
-import Topbar from './Topbar';
+import React, { useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { Spinner } from '@/components/ui';
-
-const CreateTab = lazy(() => import('./CreateTab'));
-const OrdersTab = lazy(() => import('./OrdersTab'));
-const ServicesTab = lazy(() => import('./ServicesTab'));
-const AdminTab = lazy(() => import('./AdminTab'));
-const ApiKeysTab = lazy(() => import('./ApiKeysTab'));
-const PricingTab = lazy(() => import('./PricingTab'));
-const PaymentTab = lazy(() => import('./PaymentTab'));
-const SettingsTab = lazy(() => import('./SettingsTab'));
+import { Spinner, Toast } from '@/components/ui';
+import Topbar from '@/components/dashboard/Topbar';
 
 const TABS = [
   { id: 'create', label: 'Create Label', icon: '➕', adminOnly: false },
+  { id: 'import', label: 'Import CSV', icon: '📄', adminOnly: false },
   { id: 'orders', label: 'Orders', icon: '📦', adminOnly: false },
   { id: 'services', label: 'Services', icon: '🚀', adminOnly: false },
   { id: 'admin', label: 'Admin', icon: '👥', adminOnly: true },
@@ -25,32 +19,27 @@ const TABS = [
   { id: 'settings', label: 'Settings', icon: '⚙️', adminOnly: true },
 ];
 
-function LoadingFallback() {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-4 animate-fade-in">
-      <Spinner size={32} />
-      <span className="text-sm font-semibold">Loading component...</span>
-    </div>
-  );
-}
-
-export default function Dashboard() {
-  const { currentUser, activeTab, setActiveTab } = useApp();
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { currentUser, loadingAuth } = useApp();
+  const router = useRouter();
+  const pathname = usePathname();
+  
   const isAdmin = currentUser?.role === 'admin';
   const visibleTabs = TABS.filter(t => !t.adminOnly || isAdmin);
 
-  function renderTab() {
-    switch (activeTab) {
-      case 'create': return <CreateTab />;
-      case 'orders': return <OrdersTab />;
-      case 'services': return <ServicesTab />;
-      case 'admin': return isAdmin ? <AdminTab /> : null;
-      case 'apikeys': return isAdmin ? <ApiKeysTab /> : null;
-      case 'pricing': return isAdmin ? <PricingTab /> : null;
-      case 'payment': return <PaymentTab isAdmin={isAdmin} />;
-      case 'settings': return isAdmin ? <SettingsTab /> : null;
-      default: return <CreateTab />;
+  useEffect(() => {
+    if (!loadingAuth && !currentUser) {
+      router.push('/login');
     }
+  }, [loadingAuth, currentUser, router]);
+
+  if (loadingAuth || !currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-400 font-medium flex-col gap-4">
+        <Spinner size={32} />
+        <span>Loading...</span>
+      </div>
+    );
   }
 
   return (
@@ -62,13 +51,13 @@ export default function Dashboard() {
         <div className="flex items-center gap-1.5 mb-8 overflow-x-auto pb-2 custom-scrollbar animate-fade-in">
           <div className="bg-white/60 backdrop-blur-md p-1.5 rounded-2xl shadow-sm border border-slate-200/50 flex gap-1.5 shrink-0">
             {visibleTabs.map(t => {
-              const isActive = activeTab === t.id;
+              const isActive = pathname === `/${t.id}` || (pathname === '/' && t.id === 'create');
               return (
-                <button key={t.id} onClick={() => setActiveTab(t.id)}
+                <Link key={t.id} href={`/${t.id}`}
                   className={`flex items-center gap-2 py-2 px-4 rounded-xl font-bold text-sm transition-all duration-300 ${isActive ? 'bg-white text-blue-600 shadow-sm ring-1 ring-slate-900/5' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100/50'}`}>
                   <span className="opacity-80 text-base leading-none">{t.icon}</span>
                   <span>{t.label}</span>
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -76,11 +65,10 @@ export default function Dashboard() {
 
         {/* Tab content */}
         <div className="animate-slide-up h-[100vh]">
-          <Suspense fallback={<LoadingFallback />}>
-            {renderTab()}
-          </Suspense>
+          {children}
         </div>
       </div>
+      <Toast />
     </div>
   );
 }

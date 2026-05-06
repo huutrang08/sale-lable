@@ -34,6 +34,9 @@ export async function POST(request: Request) {
     }
   }
 
+  let originalPrice = finalPrice;
+  let discountAmount = 0;
+
   const dbClient = await pool.connect();
   const orderId = 'ORD' + Date.now();
 
@@ -61,12 +64,12 @@ export async function POST(request: Request) {
     // Insert order as PROCESSING
     await dbClient.query(
       `INSERT INTO sales.orders (
-        id, username, tracking_id, pdf, price, service, service_key, weight, length, width, height,
+        id, username, tracking_id, pdf, price, discount, service, service_key, weight, length, width, height,
         from_name, from_address, from_city, from_state, from_zip,
         to_name, to_address, to_city, to_state, to_zip, api_key_label, raw_response, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, NOW())`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW())`,
       [
-        orderId, session.username, 'PROCESSING', '', finalPrice, pricing.name, label_id, w, parseFloat(length) || 0, parseFloat(width) || 0, parseFloat(height) || 0,
+        orderId, session.username, 'PROCESSING', '', originalPrice, discountAmount, pricing.name, label_id, w, parseFloat(length) || 0, parseFloat(width) || 0, parseFloat(height) || 0,
         fromName, fromAddress, fromCity, fromState, fromZip,
         toName, toAddress, toCity, toState, toZip, 'Default API', JSON.stringify({ status: 'calling external api' })
       ]

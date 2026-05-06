@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { Alert, Btn, Field, inputCls, Spinner } from '@/components/ui';
 import type { User } from '@/types';
 
 export default function AuthScreen() {
-  const { setCurrentUser, setActiveTab } = useApp();
+  const { setCurrentUser } = useApp();
+  const router = useRouter();
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [msg, setMsg] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ export default function AuthScreen() {
       const data = await res.json();
       if (data.success) {
         setCurrentUser(data.data);
-        setActiveTab('create');
+        router.push('/create');
       } else {
         setMsg({ text: data.message || 'Login failed', type: 'error' });
       }
@@ -67,7 +69,7 @@ export default function AuthScreen() {
         setMsg({ text: '✅ Account created successfully! Logging in...', type: 'success' });
         setTimeout(() => { 
           setCurrentUser(data.data); 
-          setActiveTab('create'); 
+          router.push('/create'); 
         }, 900);
       } else {
         setMsg({ text: data.message || 'Registration failed', type: 'error' });

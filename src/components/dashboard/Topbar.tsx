@@ -1,10 +1,13 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 
 export default function Topbar() {
-  const { currentUser, logout, setActiveTab, activeTab } = useApp();
+  const { currentUser, logout } = useApp();
+  const pathname = usePathname();
   const isAdmin = currentUser?.role === 'admin';
 
   return (
@@ -28,12 +31,15 @@ export default function Topbar() {
                 { label: 'API Keys', tab: 'apikeys' },
                 { label: 'Pricing', tab: 'pricing' },
                 { label: 'Settings', tab: 'settings' },
-              ].map(({ label, tab }) => (
-                <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all duration-200 ${activeTab === tab ? 'bg-orange-500 text-white shadow-sm' : 'text-orange-700/70 hover:bg-orange-100 hover:text-orange-700'}`}>
-                  {label}
-                </button>
-              ))}
+              ].map(({ label, tab }) => {
+                const isActive = pathname === `/${tab}`;
+                return (
+                  <Link key={tab} href={`/${tab}`}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-full transition-all duration-200 ${isActive ? 'bg-orange-500 text-white shadow-sm' : 'text-orange-700/70 hover:bg-orange-100 hover:text-orange-700'}`}>
+                    {label}
+                  </Link>
+                );
+              })}
             </div>
           )}
 
@@ -61,12 +67,15 @@ export default function Topbar() {
             { label: 'API Keys', tab: 'apikeys' },
             { label: 'Pricing', tab: 'pricing' },
             { label: 'Settings', tab: 'settings' },
-          ].map(({ label, tab }) => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${activeTab === tab ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-orange-700 border-orange-200'}`}>
-              {label}
-            </button>
-          ))}
+          ].map(({ label, tab }) => {
+            const isActive = pathname === `/${tab}`;
+            return (
+              <Link key={tab} href={`/${tab}`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${isActive ? 'bg-orange-500 text-white border-orange-500' : 'bg-white text-orange-700 border-orange-200'}`}>
+                {label}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
