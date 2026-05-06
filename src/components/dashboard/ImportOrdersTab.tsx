@@ -185,8 +185,8 @@ export default function ImportOrdersTab() {
         </a>
       </div>
 
-      {errorMsg && <Alert type="error" className="mb-4">{errorMsg}</Alert>}
-      {successMsg && <Alert type="success" className="mb-4">{successMsg}</Alert>}
+      {errorMsg && <div className="mb-4"><Alert type="error">{errorMsg}</Alert></div>}
+      {successMsg && <div className="mb-4"><Alert type="success">{successMsg}</Alert></div>}
 
       <Card>
         <div className="space-y-8 p-2">
