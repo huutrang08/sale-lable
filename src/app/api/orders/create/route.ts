@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool, { query } from '@/lib/db-server';
+import https from 'https';
 import { getSession } from '@/lib/session';
 import { logException } from '@/lib/logger';
 
@@ -14,8 +15,17 @@ export async function POST(request: Request) {
     reference_1, reference_2, discription
   } = payload;
 
-  const w = parseFloat(weight) || 0;
+  let w = parseFloat(weight) || 0;
   if (w <= 0) return NextResponse.json({ success: false, message: 'Invalid weight' }, { status: 400 });
+  let l = parseFloat(length) || 0;
+  let wd = parseFloat(width) || 0;
+  let h = parseFloat(height) || 0;
+
+  // Prevent numeric overflow in DB (NUMERIC(10,2) allows up to 8 digits before decimal)
+  w = Math.min(w, 99999999);
+  l = Math.min(l, 99999999);
+  wd = Math.min(wd, 99999999);
+  h = Math.min(h, 99999999);
 
   // Price computation logic matching frontend
   const pRes = await query('SELECT name, prices FROM pricing WHERE id = $1', [label_id]);
@@ -69,7 +79,7 @@ export async function POST(request: Request) {
         to_name, to_address, to_city, to_state, to_zip, api_key_label, raw_response, created_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW())`,
       [
-        orderId, session.username, 'PROCESSING', '', originalPrice, discountAmount, pricing.name, label_id, w, parseFloat(length) || 0, parseFloat(width) || 0, parseFloat(height) || 0,
+        orderId, session.username, 'PROCESSING', '', originalPrice, discountAmount, pricing.name, label_id, w, l, wd, h,
         fromName, fromAddress, fromCity, fromState, fromZip,
         toName, toAddress, toCity, toState, toZip, 'Default API', JSON.stringify({ status: 'calling external api' })
       ]
@@ -94,7 +104,7 @@ export async function POST(request: Request) {
       label_id,
       fromName, fromCompany: fromCompany || '', fromAddress, fromAddress2: fromAddress2 || '', fromZip, fromState, fromCity, fromCountry: fromCountry || 'US',
       toName, toCompany: toCompany || '', toAddress, toAddress2: toAddress2 || '', toZip, toState, toCity, toCountry: toCountry || 'US',
-      weight: w, length: parseFloat(length) || 0, width: parseFloat(width) || 0, height: parseFloat(height) || 0,
+      weight: w, length: l, width: wd, height: h,
       reference_1: reference_1 || '', reference_2: reference_2 || '', discription: discription || ''
     };
 
@@ -103,26 +113,34 @@ export async function POST(request: Request) {
     let apiJson: any = { message: 'Timeout/Network error' };
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60_000); // 60s timeout
-
-      let resp: Response;
-      try {
-        resp = await fetch('https://shiplabel.net/api/v2/create-order', {
+      const fetchPromise = new Promise<{ status: number, data: string }>((resolve, reject) => {
+        const bodyStr = JSON.stringify(apiBody);
+        const req = https.request('https://shiplabel.net/api/v2/create-order', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Length': Buffer.byteLength(bodyStr)
           },
-          body: JSON.stringify(apiBody),
-          signal: controller.signal,
+          timeout: 60000 // 60s connect & inactivity timeout
+        }, (res) => {
+          let chunks = '';
+          res.on('data', chunk => chunks += chunk);
+          res.on('end', () => resolve({ status: res.statusCode || 500, data: chunks }));
         });
-      } finally {
-        clearTimeout(timeoutId);
-      }
 
-      statusCode = resp!.status;
-      const responseText = await resp!.text();
+        req.on('error', reject);
+        req.on('timeout', () => {
+          req.destroy(new Error('Request timed out after 60s'));
+        });
+
+        req.write(bodyStr);
+        req.end();
+      });
+
+      const result = await fetchPromise;
+      statusCode = result.status;
+      const responseText = result.data;
       try { apiJson = JSON.parse(responseText); } catch { apiJson = { raw: responseText }; }
 
       // 3rd party may return {success: true, data: {...}} OR {success: {data: {...}}}

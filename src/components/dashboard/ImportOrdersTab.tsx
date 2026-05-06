@@ -13,6 +13,7 @@ export default function ImportOrdersTab() {
   const [processing, setProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [verifiedData, setVerifiedData] = useState<{ orders: any[], totalCost: number } | null>(null);
 
   useEffect(() => {
     if (services.length === 0) {
@@ -39,18 +40,25 @@ export default function ImportOrdersTab() {
     setLoadingSvc(false);
   }
 
+  function handleClassChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setSelectedClass(e.target.value);
+    setVerifiedData(null);
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
       setErrorMsg('');
       setSuccessMsg('');
+      setVerifiedData(null);
     }
   }
 
-  async function handleProcess() {
+  async function handleVerify() {
     if (!file || !selectedClass) return;
     setErrorMsg('');
     setSuccessMsg('');
+    setVerifiedData(null);
 
     const svc = services.find(s => s.id === selectedClass);
     if (!svc || !svc.prices) {
@@ -58,60 +66,146 @@ export default function ImportOrdersTab() {
       return;
     }
 
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: 'array' });
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
-    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as string[][];
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as string[][];
 
-    if (!rows || rows.length < 2) {
-      setErrorMsg('File is empty or invalid. Please ensure it has a header row and data.');
-      return;
-    }
-
-    const headers = rows[0].map(h => String(h).trim().toLowerCase());
-    const weightIdx = headers.findIndex(h => h === 'weight');
-    if (weightIdx === -1) {
-      setErrorMsg('Could not find Weight column in Excel file');
-      return;
-    }
-
-    let totalCost = 0;
-    const ordersToProcess = [];
-
-    for (let i = 1; i < rows.length; i++) {
-      const cols = rows[i].map(c => String(c).trim());
-      if (cols.length < 5) continue;
-
-      const w = parseFloat(cols[weightIdx]) || 0;
-      if (w <= 0) continue;
-
-      let finalPrice = svc.prices[svc.prices.length - 1];
-      const weightRanges = [5, 10, 25, 40, 70];
-      for (let j = 0; j < weightRanges.length; j++) {
-        if (w <= weightRanges[j]) {
-          finalPrice = svc.prices[Math.min(j, svc.prices.length - 1)];
-          break;
-        }
+      if (!rows || rows.length < 2) {
+        setErrorMsg('File is empty or invalid. Please ensure it has a header row and data.');
+        return;
       }
 
-      totalCost += finalPrice;
-      ordersToProcess.push(cols);
-    }
+      const headers = rows[0].map(h => String(h).trim().toLowerCase());
 
-    if (ordersToProcess.length === 0) {
-      setErrorMsg('No valid orders found in the CSV (check weight values).');
-      return;
-    }
+      const idxFrom = {
+        name: headers.indexOf('fromname'),
+        addr1: headers.indexOf('street1from'),
+        city: headers.indexOf('cityfrom'),
+        state: headers.indexOf('statefrom'),
+        zip: headers.indexOf('postalcodefrom')
+      };
 
-    const currentBal = Number(currentUser?.balance || 0);
-    if (totalCost > currentBal) {
-      setErrorMsg(`Insufficient balance! Total cost for ${ordersToProcess.length} orders is $${totalCost.toFixed(2)} but your balance is only $${currentBal.toFixed(2)}`);
-      return;
+      const idxTo = {
+        name: headers.indexOf('toname'),
+        addr1: headers.indexOf('street1to'),
+        addr2: headers.indexOf('street2to'),
+        company: headers.indexOf('companyto'),
+        city: headers.indexOf('cityto'),
+        state: headers.indexOf('stateto'),
+        zip: headers.indexOf('zipto')
+      };
+
+      const idxDim = {
+        w: headers.indexOf('weight'),
+        l: headers.indexOf('length'),
+        wd: headers.indexOf('width'),
+        h: headers.indexOf('height'),
+        desc: headers.indexOf('description'),
+        ref1: headers.indexOf('ref01'),
+        ref2: headers.indexOf('ref02')
+      };
+
+      if (idxDim.w === -1) {
+        setErrorMsg('Could not find Weight column in Excel file');
+        return;
+      }
+
+      let totalCost = 0;
+      const ordersToProcess = [];
+
+      for (let i = 1; i < rows.length; i++) {
+        const cols = rows[i].map(c => String(c).trim());
+        if (cols.length < 5) continue;
+
+        const w = parseFloat(cols[idxDim.w]) || 0;
+        const l = idxDim.l !== -1 ? (parseFloat(cols[idxDim.l]) || 0) : 0;
+        const wd = idxDim.wd !== -1 ? (parseFloat(cols[idxDim.wd]) || 0) : 0;
+        const h = idxDim.h !== -1 ? (parseFloat(cols[idxDim.h]) || 0) : 0;
+
+        if (w <= 0) continue;
+
+        // Validation for dimension limits to avoid DB numeric overflow
+        if (w >= 99999999 || l >= 99999999 || wd >= 99999999 || h >= 99999999) {
+          setErrorMsg(`Row ${i + 1}: Contains excessively large weight or dimensions. Please fix the data and try again.`);
+          return;
+        }
+
+        // Validation for required TO fields
+        if (
+          (idxTo.name !== -1 && !cols[idxTo.name]) ||
+          (idxTo.addr1 !== -1 && !cols[idxTo.addr1]) ||
+          (idxTo.city !== -1 && !cols[idxTo.city]) ||
+          (idxTo.state !== -1 && !cols[idxTo.state]) ||
+          (idxTo.zip !== -1 && !cols[idxTo.zip])
+        ) {
+          setErrorMsg(`Row ${i + 1}: Missing required recipient information (ToName, Street1To, CityTo, StateTo, or ZipTo).`);
+          return;
+        }
+
+        let finalPrice = svc.prices[svc.prices.length - 1];
+        const weightRanges = [5, 10, 25, 40, 70];
+        for (let j = 0; j < weightRanges.length; j++) {
+          if (w <= weightRanges[j]) {
+            finalPrice = svc.prices[Math.min(j, svc.prices.length - 1)];
+            break;
+          }
+        }
+
+        totalCost += finalPrice;
+        ordersToProcess.push({
+          fromName: idxFrom.name !== -1 ? cols[idxFrom.name] : '',
+          fromAddress: idxFrom.addr1 !== -1 ? cols[idxFrom.addr1] : '',
+          fromCity: idxFrom.city !== -1 ? cols[idxFrom.city] : '',
+          fromState: idxFrom.state !== -1 ? cols[idxFrom.state] : '',
+          fromZip: idxFrom.zip !== -1 ? cols[idxFrom.zip] : '',
+
+          toName: idxTo.name !== -1 ? cols[idxTo.name] : '',
+          toAddress: idxTo.addr1 !== -1 ? cols[idxTo.addr1] : '',
+          toCompany: idxTo.company !== -1 ? cols[idxTo.company] : '',
+          toAddress2: idxTo.addr2 !== -1 ? cols[idxTo.addr2] : '',
+          toCity: idxTo.city !== -1 ? cols[idxTo.city] : '',
+          toState: idxTo.state !== -1 ? cols[idxTo.state] : '',
+          toZip: idxTo.zip !== -1 ? cols[idxTo.zip] : '',
+
+          weight: w,
+          length: l,
+          width: wd,
+          height: h,
+          desc: idxDim.desc !== -1 ? cols[idxDim.desc] : '',
+          ref1: idxDim.ref1 !== -1 ? cols[idxDim.ref1] : '',
+          ref2: idxDim.ref2 !== -1 ? cols[idxDim.ref2] : ''
+        });
+      }
+
+      if (ordersToProcess.length === 0) {
+        setErrorMsg('No valid orders found in the file (check weight values).');
+        return;
+      }
+
+      const currentBal = Number(currentUser?.balance || 0);
+      if (totalCost > currentBal) {
+        setErrorMsg(`Insufficient balance! Total cost for ${ordersToProcess.length} orders is $${totalCost.toFixed(2)} but your balance is only $${currentBal.toFixed(2)}`);
+        return;
+      }
+
+      setVerifiedData({ orders: ordersToProcess, totalCost });
+      setSuccessMsg(`Data is valid. Total cost for ${ordersToProcess.length} orders is $${totalCost.toFixed(2)}. Ready to process.`);
+    } catch (e) {
+      setErrorMsg('Failed to parse file. Ensure it is a valid Excel/CSV file.');
     }
+  }
+
+  async function handleProcess() {
+    if (!verifiedData) return;
+    setErrorMsg('');
+    setSuccessMsg('');
 
     setProcessing(true);
     let successCount = 0;
+    const ordersToProcess = verifiedData.orders;
 
     // Get saved sender address if any
     const savedAddrJson = localStorage.getItem(`saved_from_addr_${currentUser?.username}`);
@@ -123,30 +217,30 @@ export default function ImportOrdersTab() {
       } catch { }
     }
 
-    for (const cols of ordersToProcess) {
+    for (const order of ordersToProcess) {
       const payload = {
         label_id: selectedClass,
-        fromName: savedAddr.fromName,
-        fromAddress: savedAddr.fromAddress,
-        fromCity: savedAddr.fromCity,
-        fromState: savedAddr.fromState,
-        fromZip: savedAddr.fromZip,
+        fromName: order.fromName || savedAddr.fromName,
+        fromAddress: order.fromAddress || savedAddr.fromAddress,
+        fromCity: order.fromCity || savedAddr.fromCity,
+        fromState: order.fromState || savedAddr.fromState,
+        fromZip: order.fromZip || savedAddr.fromZip,
         fromCountry: 'US',
-        toName: cols[0] || '',
-        toAddress: cols[2] || '',
-        toCompany: cols[3] || '',
-        toAddress2: cols[4] || '',
-        toCity: cols[5] || '',
-        toZip: cols[6] || '',
-        toState: cols[7] || '',
+        toName: order.toName,
+        toAddress: order.toAddress,
+        toCompany: order.toCompany,
+        toAddress2: order.toAddress2,
+        toCity: order.toCity,
+        toZip: order.toZip,
+        toState: order.toState,
         toCountry: 'US',
-        weight: parseFloat(cols[8]) || 0,
-        length: parseFloat(cols[9]) || 0,
-        width: parseFloat(cols[10]) || 0,
-        height: parseFloat(cols[11]) || 0,
-        discription: cols[12] || '',
-        reference_1: cols[13] || '',
-        reference_2: cols[14] || ''
+        weight: order.weight,
+        length: order.length,
+        width: order.width,
+        height: order.height,
+        discription: order.desc,
+        reference_1: order.ref1,
+        reference_2: order.ref2
       };
 
       try {
@@ -166,6 +260,7 @@ export default function ImportOrdersTab() {
     if (successCount === ordersToProcess.length) {
       setSuccessMsg(`✅ Successfully imported all ${successCount} orders.`);
       setFile(null);
+      setVerifiedData(null);
     } else {
       setErrorMsg(`⚠️ Imported ${successCount} out of ${ordersToProcess.length} orders. Check orders list for details.`);
     }
@@ -203,7 +298,7 @@ export default function ImportOrdersTab() {
               <select
                 className={selectCls + " w-full max-w-2xl bg-slate-50"}
                 value={selectedClass}
-                onChange={e => setSelectedClass(e.target.value)}
+                onChange={handleClassChange}
               >
                 {services.map(s => (
                   <option key={s.id} value={s.id}>{s.name} ({s.id})</option>
@@ -236,16 +331,57 @@ export default function ImportOrdersTab() {
             </div>
           </div>
 
+          {/* Preview Table */}
+          {verifiedData && (
+            <div className="mt-8 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                <h3 className="font-semibold text-slate-700">Data Preview ({verifiedData.orders.length} orders)</h3>
+                <span className="text-sm font-bold text-blue-600">Total Estimated Cost: ${verifiedData.totalCost.toFixed(2)}</span>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-100 sticky top-0 text-slate-500 font-semibold shadow-sm">
+                    <tr>
+                      <th className="px-4 py-2 border-b border-slate-200">#</th>
+                      <th className="px-4 py-2 border-b border-slate-200">Recipient</th>
+                      <th className="px-4 py-2 border-b border-slate-200">Address</th>
+                      <th className="px-4 py-2 border-b border-slate-200">Weight</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {verifiedData.orders.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-2.5 text-slate-400 w-12">{idx + 1}</td>
+                        <td className="px-4 py-2.5 font-medium text-slate-700 truncate max-w-[150px]">{row.toName || '—'}</td>
+                        <td className="px-4 py-2.5 text-slate-500 truncate max-w-[300px]">
+                          {`${row.toAddress || ''}${row.toCity ? ', ' + row.toCity : ''}${row.toState ? ', ' + row.toState : ''} ${row.toZip || ''}`}
+                        </td>
+                        <td className="px-4 py-2.5 text-slate-700 font-medium w-24">{row.weight || '0'} oz</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Submit Action */}
           <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
             <button
+              onClick={handleVerify}
+              disabled={!file || !selectedClass || processing || !!verifiedData}
+              className="px-6 py-2.5 bg-slate-600 hover:bg-slate-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-sm transition-colors flex items-center gap-2"
+            >
+              Verify Data
+            </button>
+            <button
               onClick={handleProcess}
-              disabled={!file || !selectedClass || processing}
+              disabled={!verifiedData || processing}
               className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-sm transition-colors flex items-center gap-2"
             >
               {processing ? <><Spinner size={16} /> Processing...</> : 'Upload & Process'}
             </button>
-            {!file && <span className="text-sm text-slate-400 font-medium">Please select a CSV file to continue</span>}
+            {!file && <span className="text-sm text-slate-400 font-medium">Please select a file to continue</span>}
           </div>
         </div>
       </Card>
